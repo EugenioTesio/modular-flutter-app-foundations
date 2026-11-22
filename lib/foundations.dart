@@ -14,3 +14,5 @@
 /// Testing support (the conformance check) lives in
 /// `package:foundations/testing.dart`.
 library;
+
+export 'src/inter_module/inter_module_value.dart';
