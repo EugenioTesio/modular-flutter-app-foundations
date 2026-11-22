@@ -1,0 +1,20 @@
+# Static analysis for the interim design system. Same rules as Foundations
+# (research R16). `flutter analyze` must report 0 issues.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  exclude:
+    # The gallery app is analyzed on its own.
+    - example/**
+    - build/**
+
+linter:
+  rules:
+    - public_member_api_docs
+    - always_declare_return_types
+    - prefer_final_fields
+    - avoid_dynamic_calls

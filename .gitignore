@@ -1,0 +1,20 @@
+# Dart / Flutter tooling
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Test coverage output
+coverage/
+
+# Local cross-repository overrides are never committed (research R3)
+pubspec_overrides.yaml
+
+# Editors and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp

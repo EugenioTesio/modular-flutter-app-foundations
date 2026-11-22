@@ -1,0 +1,21 @@
+name: design_system
+description: >-
+  Interim design system for the modular Flutter app: tokens, light and dark
+  themes, and accessible components. Delivered through Foundations.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.0"
+
+# Runtime dependencies are limited to the Flutter SDK (FR-056), so this package
+# can move to its own repository without changes.
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

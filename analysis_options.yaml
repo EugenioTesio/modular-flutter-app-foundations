@@ -1,0 +1,24 @@
+# Static analysis for the Foundations package (research R16).
+# `flutter analyze` must report 0 issues.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  exclude:
+    # Fixtures intentionally fail analysis (for example, the MicroAppContext
+    # compile check in test/micro_app/micro_app_context_test.dart).
+    - test/fixtures/**
+    # Nested packages are analyzed on their own, with their own options.
+    - example/**
+    - packages/**
+    - build/**
+
+linter:
+  rules:
+    - public_member_api_docs
+    - always_declare_return_types
+    - prefer_final_fields
+    - avoid_dynamic_calls
