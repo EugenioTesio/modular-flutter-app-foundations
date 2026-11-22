@@ -15,4 +15,10 @@
 /// `package:foundations/testing.dart`.
 library;
 
+export 'src/exceptions/duplicate_endpoint_exception.dart';
+export 'src/inter_module/endpoint_provider.dart';
+export 'src/inter_module/inter_module_communication.dart';
+export 'src/inter_module/inter_module_endpoint.dart';
+export 'src/inter_module/inter_module_response.dart';
+export 'src/inter_module/inter_module_status.dart';
 export 'src/inter_module/inter_module_value.dart';
