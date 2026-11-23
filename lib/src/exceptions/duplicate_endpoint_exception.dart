@@ -1,17 +1,32 @@
+/// @docImport '../common/result.dart';
+/// @docImport '../inter_module/endpoint_provider.dart';
+library;
+
 import '../inter_module/inter_module_communication.dart';
 
-/// Thrown when an address is registered twice for the same [type].
+/// Exception thrown when an address is registered twice for the same [type].
 ///
-/// It signals a wiring mistake, not a runtime outcome, so hosts let it stop
-/// startup.
+/// Use this to stop startup: it signals a wiring mistake, such as two micro
+/// apps declaring the same address, not a runtime outcome.
+///
+/// This is **not** returned in an [Err] like the other Foundations
+/// exceptions: it is thrown, because nothing can recover from it at runtime.
+///
+/// Built-in: [InterModuleCommunication.register] and
+/// [InterModuleCommunication.registerWidget] throw it, and so does
+/// [InterModuleProviderRegistration.registerProviders], which calls them.
 final class DuplicateEndpointException implements Exception {
-  /// Creates the exception for [url] and [type].
+  /// Creates a duplicate-endpoint exception.
+  ///
+  /// Parameters:
+  /// * [url] - The address that was registered twice.
+  /// * [type] - The registry, data or UI, in which the duplicate happened.
   const DuplicateEndpointException({required this.url, required this.type});
 
-  /// The address that was registered twice.
+  /// Address that was registered twice, such as `/accounts/v1/details`.
   final String url;
 
-  /// The registry (data or UI) in which the duplicate happened.
+  /// Registry, data or UI, in which the duplicate happened.
   final EndpointType type;
 
   @override

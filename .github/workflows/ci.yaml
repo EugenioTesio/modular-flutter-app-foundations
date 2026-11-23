@@ -32,6 +32,9 @@ jobs:
         run: flutter pub get
       - name: Analyze (must report 0 issues)
         run: flutter analyze
+      - name: Check API docs (no dartdoc warnings)
+        if: matrix.package == '.' || matrix.package == 'packages/design_system'
+        run: dart doc --dry-run
       - name: Test
         run: |
           if [ -d test ]; then

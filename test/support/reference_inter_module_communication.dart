@@ -35,7 +35,7 @@ class ReferenceInterModuleCommunication implements InterModuleCommunication {
   /// Creates the correct reference.
   ReferenceInterModuleCommunication() : _defects = const Defects();
 
-  /// Creates a variant with the given [defects]; see the broken variants.
+  /// Creates a variant with the given `defects`; see the broken variants.
   ReferenceInterModuleCommunication.withDefects(this._defects);
 
   final Defects _defects;
