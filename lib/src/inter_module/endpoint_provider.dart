@@ -1,3 +1,4 @@
+/// @docImport '../micro_app/micro_app.dart';
 /// @docImport '../exceptions/duplicate_endpoint_exception.dart';
 /// @docImport 'inter_module_status.dart';
 /// @docImport 'inter_module_value.dart';
@@ -14,7 +15,7 @@ import 'inter_module_response.dart';
 ///
 /// Use this when another micro app needs data that your micro app owns, such
 /// as an account's details. Declare the provider in your micro app's
-/// `dataEndpoints`; consumers call it through
+/// [MicroApp.dataEndpoints]; consumers call it through
 /// [InterModuleCommunication.request] without importing your micro app.
 ///
 /// This is **not** registered by the micro app itself: providers are only
@@ -92,7 +93,7 @@ abstract interface class DataEndpointProvider {
 ///
 /// Use this when another micro app should show a widget your micro app owns,
 /// such as a balance card on the home screen. Declare the provider in your
-/// micro app's `widgetEndpoints`; consumers get the widget through
+/// micro app's [MicroApp.widgetEndpoints]; consumers get the widget through
 /// [InterModuleCommunication.getWidget] without importing your micro app.
 ///
 /// This is **not** a route: the widget is placed inside the consumer's own

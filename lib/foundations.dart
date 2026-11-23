@@ -12,6 +12,9 @@
 ///   [CrashReporter], [AppLogger], [FeatureFlags], [KeyValueStore] and
 ///   [SecureKeyValueStore], [AppNavigator], [SessionContext], and
 ///   [DevicePermissions].
+/// * **Micro app integration**: [MicroApp], [MicroAppContext], and the
+///   router-neutral route tree ([MicroAppRoute] and [MicroAppRouteGroup]),
+///   so any host integrates any micro app the same way.
 /// * **Outcomes and exceptions**: [Result] with [Ok] and [Err], and the
 ///   exceptions [ApiException], [StorageException], [NavigationException],
 ///   and [DuplicateEndpointException].
@@ -70,7 +73,10 @@
 /// @docImport 'src/inter_module/inter_module_response.dart';
 /// @docImport 'src/inter_module/inter_module_status.dart';
 /// @docImport 'src/inter_module/inter_module_value.dart';
+/// @docImport 'src/micro_app/micro_app.dart';
+/// @docImport 'src/micro_app/micro_app_context.dart';
 /// @docImport 'src/routing/app_navigator.dart';
+/// @docImport 'src/routing/micro_app_route.dart';
 library;
 
 export 'src/capabilities/analytics.dart';
@@ -93,4 +99,7 @@ export 'src/inter_module/inter_module_endpoint.dart';
 export 'src/inter_module/inter_module_response.dart';
 export 'src/inter_module/inter_module_status.dart';
 export 'src/inter_module/inter_module_value.dart';
+export 'src/micro_app/micro_app.dart';
+export 'src/micro_app/micro_app_context.dart';
 export 'src/routing/app_navigator.dart';
+export 'src/routing/micro_app_route.dart';

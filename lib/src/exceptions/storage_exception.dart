@@ -1,3 +1,4 @@
+/// @docImport '../micro_app/micro_app.dart';
 /// @docImport '../capabilities/key_value_store.dart';
 /// @docImport '../common/result.dart';
 library;
@@ -21,11 +22,12 @@ enum StorageExceptionType {
   /// The value could not be deleted.
   deleteFailed,
 
-  /// The key is not one of the calling micro app's declared `storedKeys`.
+  /// The key is not one of the calling micro app's declared
+  /// [MicroApp.storedKeys].
   ///
   /// Core limits each micro app's stores to the keys it declares, so one
   /// micro app can never read or overwrite another's values. Declare the key
-  /// in `storedKeys` to fix it.
+  /// in [MicroApp.storedKeys] to fix it.
   undeclaredKey,
 }
 

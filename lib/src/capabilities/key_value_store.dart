@@ -1,3 +1,6 @@
+/// @docImport '../micro_app/micro_app.dart';
+library;
+
 import '../common/result.dart';
 import '../exceptions/storage_exception.dart';
 
@@ -9,7 +12,7 @@ import '../exceptions/storage_exception.dart';
 /// sensitive values.
 ///
 /// This is **not** shared between micro apps: each one can touch only the
-/// keys it declares in `MicroApp.storedKeys`. Any operation on another key
+/// keys it declares in [MicroApp.storedKeys]. Any operation on another key
 /// returns an [Err] holding a [StorageException] of type
 /// [StorageExceptionType.undeclaredKey], and leaves the other micro app's
 /// value untouched. Keys follow `<microAppId>.<key>`; declaring a key, not its
