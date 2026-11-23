@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundations/foundations.dart';
-import 'package:switchable_state/switchable_state.dart';
 import 'package:switchable_state_bloc/switchable_state_bloc.dart';
 
 import '../support/fakes.dart';

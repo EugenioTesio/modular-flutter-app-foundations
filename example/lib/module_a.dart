@@ -133,15 +133,14 @@ class _ModuleAScreenState extends State<ModuleAScreen> {
       builder: (context, snapshot) {
         final outcomes = snapshot.data;
         if (outcomes == null) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: DsLoadingIndicator(semanticsLabel: 'Running the calls'),
+          );
         }
         return ListView(
           children: [
             for (var i = 0; i < dataScenarios.length; i++)
-              ListTile(
-                title: Text(dataScenarios[i].label),
-                subtitle: Text(outcomes[i]),
-              ),
+              DsListTile(title: dataScenarios[i].label, subtitle: outcomes[i]),
           ],
         );
       },

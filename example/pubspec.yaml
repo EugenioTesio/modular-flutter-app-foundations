@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   foundations:
     path: ../
+  # The host picks the state-management adapter; Foundations never does.
+  switchable_state_riverpod: ^0.1.0
 
 dev_dependencies:
   flutter_test:

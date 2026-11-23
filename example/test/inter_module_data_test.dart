@@ -1,6 +1,6 @@
 // Feature: Every inter-module data outcome in the runnable example
 // (User Story 1; FR-035, SC-008; quickstart.md V4).
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundations/foundations.dart';
 import 'package:foundations/testing.dart';
@@ -8,6 +8,7 @@ import 'package:foundations_example/example_inter_module_communication.dart';
 import 'package:foundations_example/main.dart';
 import 'package:foundations_example/module_a.dart';
 import 'package:foundations_example/module_b.dart';
+import 'package:switchable_state_riverpod/switchable_state_riverpod.dart';
 
 const _userStory1Cases = {
   'C01', 'C02', 'C03', 'C04', 'C05', 'C06', //
@@ -107,12 +108,36 @@ void main() {
       await tester.pumpAndSettle();
 
       // Then
-      expect(find.byType(ListTile), findsNWidgets(dataScenarios.length));
+      expect(find.byType(DsListTile), findsNWidgets(dataScenarios.length));
       expect(find.textContaining('Loaded: Example details'), findsOneWidget);
       expect(
         find.textContaining('This feature is unavailable'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('When it starts under the root StateScope on a dark device, '
+        'Then it renders the design system dark theme', (tester) async {
+      // Given
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+
+      // When
+      await tester.pumpWidget(
+        StateScope(
+          adapter: const RiverpodStateAdapter(),
+          child: FoundationsExampleApp.create(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Then
+      final context = tester.element(find.byType(DsPageScaffold));
+      expect(
+        context.dsColors.background,
+        DsTheme.dark().extension<DsColors>()!.background,
+      );
+      expect(find.byType(DsListTile), findsNWidgets(dataScenarios.length));
     });
   });
 }

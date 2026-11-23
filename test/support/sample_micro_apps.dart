@@ -5,7 +5,6 @@
 // micro apps that give the router a landing page and a sign-in page.
 import 'package:flutter/material.dart';
 import 'package:foundations/foundations.dart';
-import 'package:switchable_state/switchable_state.dart';
 
 // ---------------------------------------------------------------------------
 // Base

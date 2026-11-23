@@ -18,8 +18,14 @@
 /// * **Outcomes and exceptions**: [Result] with [Ok] and [Err], and the
 ///   exceptions [ApiException], [StorageException], [NavigationException],
 ///   and [DuplicateEndpointException].
-/// * The unified design system and the `switchable_state` contract,
-///   re-exported unchanged.
+/// * **The unified design system**, re-exported unchanged: tokens such as
+///   [DsSpacing] and [DsColors], the themes [DsTheme.light] and
+///   [DsTheme.dark], and components such as [DsPageScaffold], [DsButton], and
+///   [DsTextField].
+/// * **The state-management contract** `switchable_state`, re-exported
+///   unchanged: declare state with [AppState], read it below a [StateScope],
+///   and keep screen state with [StateStoreOwner]. The host picks the
+///   [StateAdapter]; micro apps never construct one.
 ///
 /// This is **not** an implementation: every contract is an interface that
 /// Core implements.
@@ -53,6 +59,8 @@
 /// Testing support for Core (the inter-module conformance check) lives in
 /// `package:foundations/testing.dart`.
 ///
+/// @docImport 'package:design_system/design_system.dart';
+/// @docImport 'package:switchable_state/switchable_state.dart';
 /// @docImport 'src/capabilities/analytics.dart';
 /// @docImport 'src/capabilities/api_client.dart';
 /// @docImport 'src/capabilities/app_info.dart';
@@ -78,6 +86,10 @@
 /// @docImport 'src/routing/app_navigator.dart';
 /// @docImport 'src/routing/micro_app_route.dart';
 library;
+
+// Delivered packages, re-exported unchanged: no show, hide, or renames.
+export 'package:design_system/design_system.dart';
+export 'package:switchable_state/switchable_state.dart';
 
 export 'src/capabilities/analytics.dart';
 export 'src/capabilities/api_client.dart';

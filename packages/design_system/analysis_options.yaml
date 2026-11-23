@@ -15,6 +15,7 @@ analyzer:
 linter:
   rules:
     - public_member_api_docs
+    - comment_references
     - always_declare_return_types
     - prefer_final_fields
     - avoid_dynamic_calls
