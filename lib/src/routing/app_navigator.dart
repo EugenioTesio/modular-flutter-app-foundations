@@ -138,6 +138,8 @@ abstract interface class AppNavigator {
   /// * [path] - The location to go to.
   /// * [body] - Optional extra values for the screen; defaults to empty.
   ///
+  /// Each screen it closes completes its opener with [RouteCancelled].
+  ///
   /// Returns an [Ok] when navigation started, or an [Err] holding a
   /// [RouteNotFoundException] when [path] matches no route.
   Result<void, NavigationException> go(
@@ -154,7 +156,10 @@ abstract interface class AppNavigator {
   /// * [path] - The location that replaces the current screen.
   /// * [body] - Optional extra values for the screen; defaults to empty.
   ///
-  /// Completes the same way as [push].
+  /// The replaced screen's opener completes with [RouteCancelled]. The call
+  /// completes the same way as [push], except when the current screen is
+  /// the only one: the new screen then becomes the first screen, which can't
+  /// be closed, so the call completes with [RouteCancelled] at once.
   Future<Result<NavigationResult, NavigationException>> replace(
     String path, {
     Map<String, Object> body = const {},

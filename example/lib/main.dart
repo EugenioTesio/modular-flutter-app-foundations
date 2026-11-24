@@ -75,6 +75,7 @@ class _FoundationsExampleAppState extends State<FoundationsExampleApp> {
     final host = ExampleHost(
       session: _session,
       apiResponses: widget.apiResponses,
+      initialLocation: '/home',
       microApps: [
         HomeMicroApp(),
         TransfersMicroApp(prepareScenario: _session.set),
@@ -82,8 +83,14 @@ class _FoundationsExampleAppState extends State<FoundationsExampleApp> {
       ],
     );
     await host.start();
+    if (!mounted) {
+      await host.dispose();
+      return;
+    }
+    setState(() => _host = host);
+    // The previous router stays in use until the new app replaces it.
+    await WidgetsBinding.instance.endOfFrame;
     await previous?.dispose();
-    if (mounted) setState(() => _host = host);
   }
 
   @override
@@ -105,20 +112,14 @@ class _FoundationsExampleAppState extends State<FoundationsExampleApp> {
         ),
       );
     }
-    final navigator = host.navigator;
-    return MaterialApp(
-      // A new navigator for each host.
+    return MaterialApp.router(
+      // A new router for each host.
       key: ObjectKey(host),
       title: 'Foundations example',
       theme: DsTheme.light(),
       darkTheme: DsTheme.dark(),
       localizationsDelegates: host.localizationsDelegates,
-      navigatorKey: navigator.navigatorKey,
-      navigatorObservers: [navigator.observer],
-      onGenerateRoute: navigator.onGenerateRoute,
-      onGenerateInitialRoutes: (_) => [
-        navigator.onGenerateRoute(const RouteSettings(name: '/home'))!,
-      ],
+      routerConfig: host.navigator.router,
       builder: (context, child) => Column(
         children: [
           Expanded(

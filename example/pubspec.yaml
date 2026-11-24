@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   foundations:
     path: ../
+  # The host picks the router; micro apps only see the route contract.
+  go_router: ^18.1.4
   # The host picks the state-management adapter; Foundations never does.
   switchable_state_riverpod: ^0.1.0
 

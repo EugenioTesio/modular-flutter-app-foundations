@@ -30,7 +30,6 @@ final class ReferenceRouter implements AppNavigator {
         entry.fullPath: entry.requiresAuthentication,
     };
     _sessionChanges = _session.changes.listen((_) => router.refresh());
-    _stack.add(_StackEntry(initialLocation));
     router = GoRouter(
       initialLocation: initialLocation,
       routes: [for (final node in routes) _toRouteBase(node)],
@@ -48,16 +47,16 @@ final class ReferenceRouter implements AppNavigator {
   late final Map<String, bool> _requiresAuth;
   late final StreamSubscription<SessionState> _sessionChanges;
 
-  // The locations opened through this navigator, bottom first. go_router's
-  // own stack is not public API, so the adapter keeps a mirror of it.
-  final List<_StackEntry> _stack = [];
-
   /// The location currently shown, after redirects.
   String get currentLocation =>
       router.routerDelegate.currentConfiguration.uri.toString();
 
-  /// The locations opened through this navigator, bottom first.
-  List<String> get stack => [for (final entry in _stack) entry.location];
+  /// Paths of the screens on the stack, bottom first, read from go_router's
+  /// match list on every call. go_router's match list is the only record of
+  /// the stack, so nothing can drift from what is on screen.
+  List<String> get stack => [
+    for (final screen in _screens) screen.matchedLocation,
+  ];
 
   /// Releases the session subscription and the router.
   Future<void> dispose() async {
@@ -103,8 +102,44 @@ final class ReferenceRouter implements AppNavigator {
   static Widget _defaultNotFound(BuildContext context, String location) =>
       Scaffold(body: Center(child: Text('No screen at $location')));
 
-  bool _matches(String path) =>
-      !router.configuration.findMatch(Uri.parse(path)).isError;
+  bool _matches(String path) {
+    final uri = Uri.tryParse(path);
+    return uri != null && !router.configuration.findMatch(uri).isError;
+  }
+
+  /// The screens in go_router's current match list, bottom first.
+  List<RouteMatch> get _screens =>
+      _screensIn(router.routerDelegate.currentConfiguration.matches).toList();
+
+  /// Flattens [matches] to the screens they show. A group's match is not a
+  /// screen, so it is replaced by the screens inside it.
+  static Iterable<RouteMatch> _screensIn(List<RouteMatchBase> matches) sync* {
+    for (final match in matches) {
+      switch (match) {
+        case ShellRouteMatch(:final matches):
+          yield* _screensIn(matches);
+        case RouteMatch():
+          yield match;
+      }
+    }
+  }
+
+  /// Runs [navigate], then completes with `null` (read as [RouteCancelled])
+  /// every pushed screen it removed. go_router drops those screens without
+  /// completing their openers, which would otherwise wait forever.
+  void _cancelClosedScreens(void Function() navigate) {
+    final before = _screens.whereType<ImperativeRouteMatch>().toList();
+    navigate();
+    final open = {
+      for (final screen in _screens.whereType<ImperativeRouteMatch>())
+        screen.completer,
+    };
+    for (final screen in before) {
+      if (!open.contains(screen.completer) && !screen.completer.isCompleted) {
+        screen.complete();
+      }
+    }
+  }
 
   // -------------------------------------------------------------------------
   // AppNavigator
@@ -116,10 +151,7 @@ final class ReferenceRouter implements AppNavigator {
     Map<String, Object> body = const {},
   }) async {
     if (!_matches(path)) return Err(RouteNotFoundException(path));
-    final entry = _StackEntry(path);
-    _stack.add(entry);
     final result = await router.push<Object?>(path, extra: body);
-    _stack.remove(entry);
     return Ok(_outcomeOf(result));
   }
 
@@ -129,10 +161,7 @@ final class ReferenceRouter implements AppNavigator {
     Map<String, Object> body = const {},
   }) {
     if (!_matches(path)) return Err(RouteNotFoundException(path));
-    _stack
-      ..clear()
-      ..add(_StackEntry(path));
-    router.go(path, extra: body);
+    _cancelClosedScreens(() => router.go(path, extra: body));
     return const Ok(null);
   }
 
@@ -142,29 +171,44 @@ final class ReferenceRouter implements AppNavigator {
     Map<String, Object> body = const {},
   }) async {
     if (!_matches(path)) return Err(RouteNotFoundException(path));
-    final entry = _StackEntry(path);
-    if (_stack.isNotEmpty) _stack.removeLast();
-    _stack.add(entry);
-    final result = await router.pushReplacement<Object?>(path, extra: body);
-    _stack.remove(entry);
-    return Ok(_outcomeOf(result));
+    final stack = router.routerDelegate.currentConfiguration;
+    if (stack.isEmpty || stack.remove(stack.last).isEmpty) {
+      // go_router replaces the only screen the way go does and never
+      // completes the call. The new screen is then the first one, which
+      // can't be closed, so the call completes now.
+      _cancelClosedScreens(() => router.go(path, extra: body));
+      return const Ok(RouteCancelled());
+    }
+    late final Future<Object?> result;
+    _cancelClosedScreens(
+      () => result = router.pushReplacement<Object?>(path, extra: body),
+    );
+    return Ok(_outcomeOf(await result));
   }
 
   @override
   void pop({Map<String, Object>? result}) {
-    if (_stack.length > 1) _stack.removeLast();
-    router.pop(result);
+    if (router.canPop()) router.pop(result);
   }
 
   @override
   Result<void, NavigationException> popUntil(String path) {
-    if (!_stack.any((entry) => entry.location == path)) {
-      return Err(RouteNotFoundException(path));
-    }
-    while (_stack.last.location != path) {
-      _stack.removeLast();
-      router.pop();
-    }
+    final target = Uri.tryParse(path)?.path;
+    final screens = _screens;
+    final index = screens.lastIndexWhere(
+      (screen) => screen.matchedLocation == target,
+    );
+    if (index == -1) return Err(RouteNotFoundException(path));
+    if (index == screens.length - 1) return const Ok(null);
+    // Cuts the match list in one step instead of popping screen by screen:
+    // until the next frame, go_router's pages still point at the matches
+    // they were built from, so a second pop that leaves a group completes
+    // an opener twice. RouteMatchList.remove drops a screen and every screen
+    // above it.
+    final stack = router.routerDelegate.currentConfiguration;
+    _cancelClosedScreens(
+      () => router.restore(stack.remove(screens[index + 1])),
+    );
     return const Ok(null);
   }
 
@@ -172,11 +216,4 @@ final class ReferenceRouter implements AppNavigator {
       result is Map<String, Object>
       ? RouteCompleted(result)
       : const RouteCancelled();
-}
-
-// Identity matters: the same location may be on the stack twice.
-final class _StackEntry {
-  _StackEntry(this.location);
-
-  final String location;
 }

@@ -309,6 +309,102 @@ void main() {
       expect(await first, cancelled);
       expect(await second, cancelled);
     });
+
+    testWidgets('When go replaces the stack, '
+        'Then each pushed screen\'s opener gets RouteCancelled', (
+      tester,
+    ) async {
+      // Given
+      final host = await _pumpApp(tester);
+      final first = host.navigator.push('/accounts');
+      await tester.pumpAndSettle();
+      final second = host.navigator.push('/transfers');
+      await tester.pumpAndSettle();
+
+      // When
+      host.navigator.go('/home');
+      await tester.pumpAndSettle();
+
+      // Then
+      expect(host.router!.stack, ['/home']);
+      const cancelled = Ok<NavigationResult, NavigationException>(
+        RouteCancelled(),
+      );
+      expect(await first, cancelled);
+      expect(await second, cancelled);
+    });
+
+    testWidgets('When the top screen is replaced, '
+        'Then the replaced screen\'s opener gets RouteCancelled', (
+      tester,
+    ) async {
+      // Given
+      final host = await _pumpApp(tester);
+      final opened = host.navigator.push('/accounts');
+      await tester.pumpAndSettle();
+
+      // When
+      host.navigator.replace('/transfers').ignore();
+      await tester.pumpAndSettle();
+
+      // Then
+      expect(host.router!.stack, ['/home', '/transfers']);
+      expect(
+        await opened,
+        const Ok<NavigationResult, NavigationException>(RouteCancelled()),
+      );
+    });
+
+    testWidgets('When popUntil(/home) runs from inside the tab group, '
+        'Then it leaves the group and each opener gets RouteCancelled', (
+      tester,
+    ) async {
+      // Given
+      final host = await _pumpApp(tester);
+      final overview = host.navigator.push('/accounts/tabs/overview');
+      await tester.pumpAndSettle();
+      final history = host.navigator.push('/accounts/tabs/history');
+      await tester.pumpAndSettle();
+      expect(host.router!.stack, [
+        '/home',
+        '/accounts/tabs/overview',
+        '/accounts/tabs/history',
+      ]);
+
+      // When
+      final result = host.navigator.popUntil('/home');
+      await tester.pumpAndSettle();
+
+      // Then
+      expect(result, const Ok<void, NavigationException>(null));
+      expect(find.text('Home'), findsOneWidget);
+      expect(host.router!.stack, ['/home']);
+      const cancelled = Ok<NavigationResult, NavigationException>(
+        RouteCancelled(),
+      );
+      expect(await overview, cancelled);
+      expect(await history, cancelled);
+    });
+  });
+
+  group('Given Home as the only screen', () {
+    testWidgets('When it is replaced, '
+        'Then replace completes at once with RouteCancelled', (tester) async {
+      // Given
+      final host = await _pumpApp(tester);
+
+      // When
+      final replaced = await host.navigator.replace('/transfers');
+      await tester.pumpAndSettle();
+
+      // Then
+      expect(
+        replaced,
+        const Ok<NavigationResult, NavigationException>(RouteCancelled()),
+      );
+      expect(host.router!.stack, ['/transfers']);
+      expect(find.text('Transfers'), findsOneWidget);
+    });
   });
 
   group('Given a signed-out user', () {

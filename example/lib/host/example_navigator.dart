@@ -1,62 +1,160 @@
 import 'package:flutter/material.dart';
 import 'package:foundations/foundations.dart';
+import 'package:go_router/go_router.dart';
 
-/// An [AppNavigator] over Flutter's [Navigator], built from the micro apps'
-/// route declarations.
+import 'example_go_routes.dart';
+import 'example_route_helper.dart';
+import 'example_sign_in_guard.dart';
+
+/// An [AppNavigator] over go_router, built from the micro apps' route
+/// declarations, as Core does.
 ///
-/// Core uses a full router; this example keeps to plain [Navigator] so the
-/// host stays short. It supports top-level and nested routes with `:name`
-/// parameters and query parameters, groups (their layout wraps each screen),
-/// and full-screen dialogs. It does not guard routes by sign-in state.
+/// [install] wires three parts, each in its own file:
+/// [ExampleRouteHelper] checks the declarations, [ExampleGoRoutes] maps
+/// them to go_router, and [ExampleSignInGuard] is the `redirect` that sends
+/// a signed-out user from a route that requires sign-in to [signInPath],
+/// which shows [ExampleSignInRequiredScreen]. A location that matches no
+/// route shows [ExampleRouteNotFoundScreen].
+///
+/// The guard runs on every navigation, including deep links. It is not
+/// re-run when the session changes, because the Transfers demo signs out
+/// for a moment while its own guarded screen is open. Core's router also
+/// refreshes on session changes, so signing out leaves guarded screens.
+///
+/// go_router's match list is the only record of the stack: [locations] and
+/// [popUntil] read it, so nothing can drift from what is on screen. Every
+/// screen that closes completes its opener: [pop] through go_router, and
+/// [go], [replace], and [popUntil] here, because go_router drops the screens
+/// they close without completing their openers.
 final class ExampleNavigator implements AppNavigator {
-  /// Key of the app's root navigator; pass it to `MaterialApp.navigatorKey`.
-  final navigatorKey = GlobalKey<NavigatorState>();
+  /// Creates a navigator that guards routes with [session].
+  ExampleNavigator({required this.session});
 
-  /// Observer that tracks the stack for [popUntil]; pass it to
-  /// `MaterialApp.navigatorObservers`.
-  late final NavigatorObserver observer = _StackObserver(_stack);
+  /// Location of the screen a route that requires sign-in redirects to.
+  static const signInPath = '/sign-in';
 
-  final _stack = <String>[];
-  var _routes = <_RouteEntry>[];
+  /// The signed-in user, read by the redirect on every navigation.
+  final SessionContext session;
 
-  /// Installs every route the micro apps declared. The host calls it once,
-  /// after every micro app has initialized.
-  void install(Iterable<MicroAppRouteNode> nodes) {
-    _routes = [..._RouteEntry.flatten(nodes, parent: '', layouts: const [])];
-  }
+  /// What [install] produced; `null` until it runs.
+  ({List<RouteBase> routes, ExampleSignInGuard guard, String initialLocation})?
+  _installation;
 
-  /// Builds the page for a location, or null when no route matches.
+  GoRouter? _router;
+
+  /// The go_router instance, for `MaterialApp.router(routerConfig: …)`.
   ///
-  /// Pass it to `MaterialApp.onGenerateRoute`; the body travels in
-  /// [RouteSettings.arguments].
-  Route<Map<String, Object>?>? onGenerateRoute(RouteSettings settings) {
-    final location = Uri.parse(settings.name ?? '');
-    for (final entry in _routes) {
-      final parameters = entry.match(location);
-      if (parameters == null) continue;
-      final body = settings.arguments is Map<String, Object>
-          ? settings.arguments! as Map<String, Object>
-          : const <String, Object>{};
-      return MaterialPageRoute<Map<String, Object>?>(
-        settings: settings,
-        fullscreenDialog:
-            entry.route.presentation == RoutePresentation.fullscreenDialog,
-        builder: (context) => entry.layouts.reversed.fold(
-          entry.route.builder(context, parameters, body),
-          (child, layout) => layout(context, child),
+  /// It is built on first use, after [install]. Throws a [StateError] when
+  /// [install] hasn't run.
+  GoRouter get router => _router ??= _buildRouter();
+
+  /// Checks and installs every route the micro apps declared, keyed by micro
+  /// app id. The host calls it once, after every micro app has initialized.
+  ///
+  /// Parameters:
+  /// * [routesByMicroAppId] - Each micro app's top-level route nodes.
+  /// * [initialLocation] - The location the router opens first.
+  ///
+  /// Throws a [StateError] naming the path, and installs nothing, when a
+  /// route breaks a startup rule (see [ExampleRouteHelper.validate]),
+  /// including taking [signInPath].
+  void install(
+    Map<String, List<MicroAppRouteNode>> routesByMicroAppId, {
+    required String initialLocation,
+  }) {
+    final entries = ExampleRouteHelper.validate(
+      routesByMicroAppId,
+      reservedPaths: const {signInPath: 'the example host'},
+    );
+    _installation = (
+      routes: [
+        GoRoute(
+          path: signInPath,
+          builder: (context, state) => const ExampleSignInRequiredScreen(),
         ),
-      );
-    }
-    return null;
+        for (final routes in routesByMicroAppId.values)
+          ...ExampleGoRoutes.fromNodes(routes),
+      ],
+      guard: ExampleSignInGuard(
+        session: session,
+        signInPath: signInPath,
+        routes: entries,
+      ),
+      initialLocation: initialLocation,
+    );
   }
 
-  bool _matches(String path) =>
-      _routes.any((entry) => entry.match(Uri.parse(path)) != null);
+  /// Paths of the screens on the stack, bottom first, such as
+  /// `['/home', '/transfers']`.
+  ///
+  /// Read from go_router's match list on every call. A route group adds no
+  /// entry of its own; its screens do. Query strings are not included.
+  List<String> get locations => [
+    for (final screen in _screens) screen.matchedLocation,
+  ];
 
-  NavigatorState get _navigator => navigatorKey.currentState!;
+  /// Releases the router, if it was built.
+  void dispose() => _router?.dispose();
 
-  static NavigationResult _outcome(Map<String, Object>? result) =>
-      result == null ? const RouteCancelled() : RouteCompleted(result);
+  GoRouter _buildRouter() {
+    final installation = _installation;
+    if (installation == null) {
+      throw StateError('Call install before using the router.');
+    }
+    return GoRouter(
+      initialLocation: installation.initialLocation,
+      routes: installation.routes,
+      redirect: installation.guard.redirect,
+      errorBuilder: (context, state) =>
+          ExampleRouteNotFoundScreen(location: state.uri.toString()),
+    );
+  }
+
+  /// Whether [path] parses and matches a declared route.
+  bool _matches(String path) {
+    final uri = Uri.tryParse(path);
+    return uri != null && !router.configuration.findMatch(uri).isError;
+  }
+
+  static NavigationResult _outcome(Object? result) =>
+      result is Map<String, Object>
+      ? RouteCompleted(result)
+      : const RouteCancelled();
+
+  /// The screens in go_router's current match list, bottom first.
+  List<RouteMatch> get _screens =>
+      _screensIn(router.routerDelegate.currentConfiguration.matches).toList();
+
+  /// Flattens [matches] to the screens they show. A group's match is not a
+  /// screen, so it is replaced by the screens inside it.
+  static Iterable<RouteMatch> _screensIn(List<RouteMatchBase> matches) sync* {
+    for (final match in matches) {
+      switch (match) {
+        case ShellRouteMatch(:final matches):
+          yield* _screensIn(matches);
+        case RouteMatch():
+          yield match;
+      }
+    }
+  }
+
+  /// Runs [navigate], then completes with `null`, which the opener reads as
+  /// [RouteCancelled], every pushed screen that [navigate] removed from the
+  /// stack. go_router drops those screens without completing their openers,
+  /// which would otherwise wait forever.
+  void _cancelClosedScreens(void Function() navigate) {
+    final before = _screens.whereType<ImperativeRouteMatch>().toList();
+    navigate();
+    final open = {
+      for (final screen in _screens.whereType<ImperativeRouteMatch>())
+        screen.completer,
+    };
+    for (final screen in before) {
+      if (!open.contains(screen.completer) && !screen.completer.isCompleted) {
+        screen.complete();
+      }
+    }
+  }
 
   @override
   Future<Result<NavigationResult, NavigationException>> push(
@@ -64,10 +162,7 @@ final class ExampleNavigator implements AppNavigator {
     Map<String, Object> body = const {},
   }) async {
     if (!_matches(path)) return Err(RouteNotFoundException(path));
-    final result = await _navigator.pushNamed<Map<String, Object>?>(
-      path,
-      arguments: body,
-    );
+    final result = await router.push<Object?>(path, extra: body);
     return Ok(_outcome(result));
   }
 
@@ -77,7 +172,7 @@ final class ExampleNavigator implements AppNavigator {
     Map<String, Object> body = const {},
   }) {
     if (!_matches(path)) return Err(RouteNotFoundException(path));
-    _navigator.pushNamedAndRemoveUntil(path, (_) => false, arguments: body);
+    _cancelClosedScreens(() => router.go(path, extra: body));
     return const Ok(null);
   }
 
@@ -87,97 +182,86 @@ final class ExampleNavigator implements AppNavigator {
     Map<String, Object> body = const {},
   }) async {
     if (!_matches(path)) return Err(RouteNotFoundException(path));
-    final result = await _navigator
-        .pushReplacementNamed<Map<String, Object>?, Object?>(
-          path,
-          arguments: body,
-        );
-    return Ok(_outcome(result));
+    final stack = router.routerDelegate.currentConfiguration;
+    if (stack.isEmpty || stack.remove(stack.last).isEmpty) {
+      // go_router replaces the only screen the way go does and never
+      // completes the call. The new screen is then the first one, which
+      // can't be closed, so the call completes now.
+      _cancelClosedScreens(() => router.go(path, extra: body));
+      return const Ok(RouteCancelled());
+    }
+    late final Future<Object?> result;
+    _cancelClosedScreens(
+      () => result = router.pushReplacement<Object?>(path, extra: body),
+    );
+    return Ok(_outcome(await result));
   }
 
   @override
-  void pop({Map<String, Object>? result}) => _navigator.maybePop(result);
+  void pop({Map<String, Object>? result}) {
+    if (router.canPop()) router.pop(result);
+  }
 
   @override
   Result<void, NavigationException> popUntil(String path) {
-    if (!_stack.contains(path)) return Err(RouteNotFoundException(path));
-    _navigator.popUntil((route) => route.settings.name == path);
+    final target = Uri.tryParse(path)?.path;
+    final screens = _screens;
+    final index = screens.lastIndexWhere(
+      (screen) => screen.matchedLocation == target,
+    );
+    if (index == -1) return Err(RouteNotFoundException(path));
+    if (index == screens.length - 1) return const Ok(null);
+    // Cuts the match list in one step instead of popping screen by screen:
+    // until the next frame, go_router's pages still point at the matches
+    // they were built from, so a second pop that leaves a group completes
+    // an opener twice. RouteMatchList.remove drops a screen and every screen
+    // above it.
+    final stack = router.routerDelegate.currentConfiguration;
+    _cancelClosedScreens(
+      () => router.restore(stack.remove(screens[index + 1])),
+    );
     return const Ok(null);
   }
 }
 
-typedef _Layout = Widget Function(BuildContext context, Widget child);
+/// The screen a route that requires sign-in redirects to while no user is
+/// signed in. The example has no sign-in micro app, so it only explains why
+/// the screen can't open; closing it cancels the navigation.
+class ExampleSignInRequiredScreen extends StatelessWidget {
+  /// Creates the screen.
+  const ExampleSignInRequiredScreen({super.key});
 
-final class _RouteEntry {
-  _RouteEntry(this.fullPath, this.route, this.layouts)
-    : _segments = Uri.parse(fullPath).pathSegments;
-
-  final String fullPath;
-  final MicroAppRoute route;
-  final List<_Layout> layouts;
-  final List<String> _segments;
-
-  static Iterable<_RouteEntry> flatten(
-    Iterable<MicroAppRouteNode> nodes, {
-    required String parent,
-    required List<_Layout> layouts,
-  }) sync* {
-    for (final node in nodes) {
-      switch (node) {
-        case MicroAppRoute(:final path, :final routes):
-          final full = path.startsWith('/')
-              ? path
-              : '${parent == '/' ? '' : parent}/$path';
-          yield _RouteEntry(full, node, layouts);
-          yield* flatten(routes, parent: full, layouts: layouts);
-        case MicroAppRouteGroup(:final builder, :final routes):
-          yield* flatten(
-            routes,
-            parent: parent,
-            layouts: [...layouts, builder],
-          );
-      }
-    }
-  }
-
-  /// The path and query parameters when [location] matches, else null.
-  Map<String, String>? match(Uri location) {
-    final segments = location.pathSegments;
-    if (segments.length != _segments.length) return null;
-    final parameters = <String, String>{...location.queryParameters};
-    for (var i = 0; i < segments.length; i++) {
-      final pattern = _segments[i];
-      if (pattern.startsWith(':')) {
-        if (segments[i].isEmpty) return null;
-        parameters[pattern.substring(1)] = segments[i];
-      } else if (pattern != segments[i]) {
-        return null;
-      }
-    }
-    return parameters;
+  @override
+  Widget build(BuildContext context) {
+    return const DsPageScaffold(
+      title: 'Sign in',
+      body: DsEmptyState(
+        icon: Icons.lock_outline,
+        title: 'Sign in to continue',
+        message: 'This screen is available after you sign in.',
+      ),
+    );
   }
 }
 
-final class _StackObserver extends NavigatorObserver {
-  _StackObserver(this._stack);
+/// The host's screen for a location that matches no route, such as a broken
+/// deep link.
+class ExampleRouteNotFoundScreen extends StatelessWidget {
+  /// Creates the screen for [location].
+  const ExampleRouteNotFoundScreen({super.key, required this.location});
 
-  final List<String> _stack;
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _stack.add(route.settings.name ?? '');
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _stack.removeLast();
+  /// The location that matched no route.
+  final String location;
 
   @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _stack.remove(route.settings.name ?? '');
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    final index = _stack.lastIndexOf(oldRoute?.settings.name ?? '');
-    if (index >= 0) _stack[index] = newRoute?.settings.name ?? '';
+  Widget build(BuildContext context) {
+    return DsPageScaffold(
+      title: 'Not found',
+      body: DsEmptyState(
+        icon: Icons.explore_off_outlined,
+        title: 'This screen does not exist',
+        message: 'Nothing is available at $location.',
+      ),
+    );
   }
 }
