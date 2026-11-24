@@ -1,5 +1,5 @@
 /// @docImport '../capabilities/session_context.dart';
-/// @docImport '../inter_module/inter_module_value.dart';
+/// @docImport '../inter_module/inter_module_validator.dart';
 library;
 
 import 'package:flutter/foundation.dart';
@@ -32,8 +32,8 @@ final class RouteCompleted extends NavigationResult {
   /// Values the screen passed to [AppNavigator.pop], compared by content.
   ///
   /// When the screen belongs to another micro app, the values follow the
-  /// payload rule (see [isInterModuleValue]) and match the result schema the
-  /// owning micro app publishes for the route.
+  /// payload rule (see [InterModuleValidator.isValidPayload]) and match the
+  /// result schema the owning micro app publishes for the route.
   final Map<String, Object> result;
 
   @override
@@ -81,11 +81,11 @@ final class RouteCancelled extends NavigationResult {
 /// is part of the owning micro app's public surface, like an endpoint
 /// address.
 ///
-/// A `body` carries extra values to the destination screen. A deep link has
-/// no body, so a screen must still work, or recover, without one. When the
+/// A `body` carries extra values to the destination screen. A deep link has no
+/// body, so a screen must still work, or recover, without one. When the
 /// destination belongs to another micro app, body values follow the payload
-/// rule (see [isInterModuleValue]), so the caller imports none of that micro
-/// app's types.
+/// rule (see [InterModuleValidator.isValidPayload]), so the caller imports none
+/// of that micro app's types.
 ///
 /// This is **not** a router: micro apps declare routes, and Core builds the
 /// actual router from them. Navigation never throws: a location that matches

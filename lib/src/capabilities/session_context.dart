@@ -1,7 +1,7 @@
 /// @docImport '../capabilities/api_client.dart';
 /// @docImport '../capabilities/app_logger.dart';
 /// @docImport '../capabilities/crash_reporter.dart';
-/// @docImport '../inter_module/inter_module_value.dart';
+/// @docImport '../inter_module/inter_module_validator.dart';
 library;
 
 import 'package:flutter/foundation.dart';
@@ -60,9 +60,10 @@ final class UserIdentity {
   /// Other profile values the identity provider supplies, such as an address
   /// or a customer segment.
   ///
-  /// Values follow the payload rule (see [isInterModuleValue]), so any micro
-  /// app can read them without importing another's types. It is compared key
-  /// by key, with `==` for each value.
+  /// Values follow the payload rule (see
+  /// [InterModuleValidator.isValidPayload]), so any micro app can read them
+  /// without importing another's types. It is compared key by key, with `==`
+  /// for each value.
   final Map<String, Object?> customProperties;
 
   @override

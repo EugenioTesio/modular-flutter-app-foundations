@@ -1,6 +1,6 @@
 /// @docImport 'endpoint_provider.dart';
 /// @docImport 'inter_module_communication.dart';
-/// @docImport 'inter_module_value.dart';
+/// @docImport 'inter_module_validator.dart';
 library;
 
 import 'package:flutter/foundation.dart';
@@ -64,9 +64,9 @@ final class InterModuleEndpoint {
 
   /// Parameters sent with a call.
   ///
-  /// Values follow the payload rule (see [isInterModuleValue]). Parameters
-  /// the provider did not declare reach it unchanged. Only read on a
-  /// consumer's call.
+  /// Values follow the payload rule (see
+  /// [InterModuleValidator.isValidPayload]). Parameters the provider did not
+  /// declare reach it unchanged. Only read on a consumer's call.
   final Map<String, Object?> parameters;
 
   /// Names of the parameters the provider requires.

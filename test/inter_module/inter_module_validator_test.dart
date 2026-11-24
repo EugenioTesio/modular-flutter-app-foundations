@@ -12,7 +12,7 @@ void main() {
       const values = <Object?>[null, true, 42, 3.14, '', 'text'];
 
       // When
-      final results = values.map(isInterModuleValue);
+      final results = values.map(InterModuleValidator.isValidPayload);
 
       // Then
       expect(results, everyElement(isTrue));
@@ -24,7 +24,7 @@ void main() {
       final values = <Object?>[<Object?>[], <String, Object?>{}];
 
       // When
-      final results = values.map(isInterModuleValue);
+      final results = values.map(InterModuleValidator.isValidPayload);
 
       // Then
       expect(results, everyElement(isTrue));
@@ -46,7 +46,7 @@ void main() {
       };
 
       // When
-      final result = isInterModuleValue(value);
+      final result = InterModuleValidator.isValidPayload(value);
 
       // Then
       expect(result, isTrue);
@@ -64,7 +64,7 @@ void main() {
       ];
 
       // When
-      final results = values.map(isInterModuleValue);
+      final results = values.map(InterModuleValidator.isValidPayload);
 
       // Then
       expect(results, everyElement(isFalse));
@@ -78,7 +78,7 @@ void main() {
       ];
 
       // When
-      final results = values.map(isInterModuleValue);
+      final results = values.map(InterModuleValidator.isValidPayload);
 
       // Then
       expect(results, everyElement(isFalse));
@@ -97,7 +97,7 @@ void main() {
       ];
 
       // When
-      final results = values.map(isInterModuleValue);
+      final results = values.map(InterModuleValidator.isValidPayload);
 
       // Then
       expect(results, everyElement(isFalse));
@@ -112,7 +112,7 @@ void main() {
       ];
 
       // When
-      final results = values.map(isInterModuleValue);
+      final results = values.map(InterModuleValidator.isValidPayload);
 
       // Then
       expect(results, everyElement(isFalse));
@@ -124,7 +124,7 @@ void main() {
       list.add(list);
 
       // When
-      final result = isInterModuleValue(list);
+      final result = InterModuleValidator.isValidPayload(list);
 
       // Then
       expect(result, isFalse);

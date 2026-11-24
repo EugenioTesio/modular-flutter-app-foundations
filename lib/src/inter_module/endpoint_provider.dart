@@ -1,7 +1,7 @@
 /// @docImport '../micro_app/micro_app.dart';
 /// @docImport '../exceptions/duplicate_endpoint_exception.dart';
 /// @docImport 'inter_module_status.dart';
-/// @docImport 'inter_module_value.dart';
+/// @docImport 'inter_module_validator.dart';
 library;
 
 import 'package:flutter/widgets.dart';
@@ -81,8 +81,9 @@ abstract interface class DataEndpointProvider {
   ///   required to send.
   ///
   /// Returns a success whose data follows the payload rule (see
-  /// [isInterModuleValue]), or a failure. If it throws, the consumer receives
-  /// [InterModuleStatusCode.internalError] without the exception's details.
+  /// [InterModuleValidator.isValidPayload]), or a failure. If it throws, the
+  /// consumer receives [InterModuleStatusCode.internalError] without the
+  /// exception's details.
   Future<InterModuleCommunicationResponse<Map<String, Object?>>> handle(
     Map<String, Object?> parameters,
   );

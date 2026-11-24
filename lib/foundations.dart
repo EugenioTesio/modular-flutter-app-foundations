@@ -80,7 +80,7 @@
 /// @docImport 'src/inter_module/inter_module_endpoint.dart';
 /// @docImport 'src/inter_module/inter_module_response.dart';
 /// @docImport 'src/inter_module/inter_module_status.dart';
-/// @docImport 'src/inter_module/inter_module_value.dart';
+/// @docImport 'src/inter_module/inter_module_validator.dart';
 /// @docImport 'src/micro_app/micro_app.dart';
 /// @docImport 'src/micro_app/micro_app_context.dart';
 /// @docImport 'src/routing/app_navigator.dart';
@@ -110,7 +110,7 @@ export 'src/inter_module/inter_module_communication.dart';
 export 'src/inter_module/inter_module_endpoint.dart';
 export 'src/inter_module/inter_module_response.dart';
 export 'src/inter_module/inter_module_status.dart';
-export 'src/inter_module/inter_module_value.dart';
+export 'src/inter_module/inter_module_validator.dart';
 export 'src/micro_app/micro_app.dart';
 export 'src/micro_app/micro_app_context.dart';
 export 'src/routing/app_navigator.dart';

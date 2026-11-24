@@ -1,6 +1,6 @@
 /// @docImport 'endpoint_provider.dart';
 /// @docImport 'inter_module_communication.dart';
-/// @docImport 'inter_module_value.dart';
+/// @docImport 'inter_module_validator.dart';
 library;
 
 import 'package:flutter/foundation.dart';
@@ -71,7 +71,7 @@ final class InterModuleCommunicationResponse<T> {
   ///
   /// Parameters:
   /// * [data] - The result map or UI element. A data endpoint's map follows
-  ///   the payload rule (see [isInterModuleValue]).
+  ///   the payload rule (see [InterModuleValidator.isValidPayload]).
   const InterModuleCommunicationResponse.success(T this.data)
     : statusCode = InterModuleStatusCode.ok,
       errorCode = null;
@@ -98,7 +98,7 @@ final class InterModuleCommunicationResponse<T> {
   /// Optional result map or UI element, present only on success.
   ///
   /// A data endpoint's map follows the payload rule (see
-  /// [isInterModuleValue]).
+  /// [InterModuleValidator.isValidPayload]).
   final T? data;
 
   /// Optional machine-readable reason for a failure; `null` on success.

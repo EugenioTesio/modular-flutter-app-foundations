@@ -26,8 +26,8 @@ Both are re-exported unchanged from `package:foundations/foundations.dart`.
   widget endpoints, `InterModuleEndpoint` (address, parameters, required
   parameters, and an optional trace name), `InterModuleCommunicationResponse`
   with `isSuccess`, the four statuses in `InterModuleStatusCode`, the shared
-  codes in `InterModuleErrorCode`, the payload rule `isInterModuleValue`, and
-  `EndpointType`.
+  codes in `InterModuleErrorCode`, the payload rule
+  `InterModuleValidator.isValidPayload`, and `EndpointType`.
 - **Endpoint providers**: `DataEndpointProvider` and
   `WidgetEndpointProvider`, registered in one step with `registerProviders`.
 - **Capabilities**: `AppInfo`, `ApiClient` (with `ApiRequest`, `ApiResponse`,
