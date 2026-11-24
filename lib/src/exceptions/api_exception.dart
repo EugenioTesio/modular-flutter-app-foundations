@@ -127,7 +127,10 @@ final class ApiException implements Exception {
   @override
   int get hashCode => Object.hash(type, statusCode, body);
 
+  /// Returns a description with the type and the status, but not the body,
+  /// so printing a failure never leaks personal data.
   @override
   String toString() =>
-      'ApiException(${type.name}, statusCode: $statusCode, body: $body)';
+      'ApiException(${type.name}, statusCode: $statusCode, '
+      'body: ${body == null ? 'none' : 'present'})';
 }

@@ -113,10 +113,15 @@ final class ApiRequest {
     body,
   );
 
+  /// Returns a description with the method, the path, and the names of the
+  /// query parameters and headers, but none of their values and not the
+  /// body, so printing a request never leaks credentials or personal data.
   @override
   String toString() =>
-      'ApiRequest(${method.name} $path, queryParams: $queryParams, '
-      'headers: $headers, body: $body)';
+      'ApiRequest(${method.name} $path, '
+      'queryParams: ${queryParams.keys.toList()}, '
+      'headers: ${headers.keys.toList()}, '
+      'body: ${body == null ? 'none' : 'present'})';
 }
 
 /// Value that holds a successful (2xx or 3xx) response from the backend.
@@ -167,9 +172,13 @@ final class ApiResponse {
     ),
   );
 
+  /// Returns a description with the status and the header names, but no
+  /// header values and not the body, so printing a response never leaks
+  /// credentials or personal data.
   @override
   String toString() =>
-      'ApiResponse($statusCode, body: $body, headers: $headers)';
+      'ApiResponse($statusCode, headers: ${headers.keys.toList()}, '
+      'body: ${body == null ? 'none' : 'present'})';
 }
 
 /// Contract that is the only path from a micro app to the application's

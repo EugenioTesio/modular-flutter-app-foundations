@@ -113,8 +113,10 @@ final class InterModuleCommunicationResponse<T> {
   /// failure.
   bool get isSuccess => statusCode >= 200 && statusCode < 300;
 
+  /// Returns a description with the status and the error code, but not
+  /// [data], so printing a response never leaks personal data.
   @override
   String toString() =>
       'InterModuleCommunicationResponse($statusCode, '
-      'errorCode: $errorCode, data: $data)';
+      'errorCode: $errorCode, data: ${data == null ? 'none' : 'present'})';
 }

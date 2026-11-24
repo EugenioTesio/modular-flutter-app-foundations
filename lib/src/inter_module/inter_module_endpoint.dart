@@ -103,8 +103,11 @@ final class InterModuleEndpoint {
     traceName,
   );
 
+  /// Returns a description with the address, the parameter names, and the
+  /// trace name, but no parameter values, so printing an endpoint never
+  /// leaks personal data.
   @override
   String toString() =>
-      'InterModuleEndpoint($url, parameters: $parameters, '
+      'InterModuleEndpoint($url, parameters: ${parameters.keys.toList()}, '
       'requiredParameters: $requiredParameters, traceName: $traceName)';
 }
