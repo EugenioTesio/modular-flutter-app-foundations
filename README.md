@@ -273,8 +273,8 @@ consumer code:
 | Analyze (0 issues) | `flutter analyze` |
 | Tests | `flutter test` |
 | API docs (0 warnings) | `dart doc --dry-run` |
-| Coverage (at least 90% of `lib/`) | `flutter test --coverage`, which writes `coverage/lcov.info`. In CI, [Report LCOV](https://github.com/zgosalvez/github-actions-report-lcov) checks it, comments the coverage on the pull request, and uploads an HTML report |
+| Coverage (at least 90% of `lib/`) | `flutter test --coverage`, which writes `coverage/lcov.info` |
 | Git consumer resolution | `tool/git_consumer_smoke.sh` |
 
-CI runs these for this package, the example, the design system, and its
-gallery.
+There is no CI. Run these before opening a pull request, in this package,
+the example, the design system, and its gallery.
