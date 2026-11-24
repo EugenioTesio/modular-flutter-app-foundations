@@ -1,13 +1,16 @@
-// Feature: Every inter-module data outcome in the runnable example
-// (User Story 1; FR-035, SC-008; quickstart.md V4).
+// Feature: Every inter-module data outcome in the runnable example:
+// Transfers checks a card through Cards (User Story 1; FR-035, SC-008;
+// quickstart.md V4).
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundations/foundations.dart';
 import 'package:foundations/testing.dart';
-import 'package:foundations_example/example_inter_module_communication.dart';
+import 'package:foundations_example/host/example_host.dart';
+import 'package:foundations_example/host/example_inter_module_communication.dart';
+import 'package:foundations_example/host/example_services.dart';
 import 'package:foundations_example/main.dart';
-import 'package:foundations_example/module_a.dart';
-import 'package:foundations_example/module_b.dart';
+import 'package:foundations_example/cards.dart';
+import 'package:foundations_example/transfers.dart';
 import 'package:switchable_state_riverpod/switchable_state_riverpod.dart';
 
 const _userStory1Cases = {
@@ -17,14 +20,17 @@ const _userStory1Cases = {
 
 /// Expected status and error code for each scenario, by label.
 const _expected = {
-  'Details for id 123': (200, null),
-  'Details without an id': (400, 'missing_required_parameters'),
-  'Details with an empty id': (400, 'invalid_id'),
-  'Details for an unknown id': (404, 'details_not_found'),
-  'A module that is not installed': (404, 'endpoint_not_registered'),
-  'Details while signed out': (400, 'unauthenticated'),
-  'Details without permission': (400, 'forbidden'),
-  'Details when Module B fails': (500, null),
+  'Pay from card-123': (200, null),
+  'Pay without choosing a card': (400, 'missing_required_parameters'),
+  'Pay from an empty card id': (400, 'invalid_card_id'),
+  'Pay from an unknown card': (404, 'card_not_found'),
+  'Pay from a loan, a module that is not installed': (
+    404,
+    'endpoint_not_registered',
+  ),
+  'Pay from card-123 while signed out': (400, 'unauthenticated'),
+  'Pay from card-123 without permission': (400, 'forbidden'),
+  'Pay while Cards fails': (500, null),
 };
 
 void main() {
@@ -45,24 +51,23 @@ void main() {
     }
   });
 
-  group('Given a host with Module B registered', () {
-    late ExampleInterModuleCommunication communication;
-    late ModuleBAccess access;
+  group('Given a host that started Cards through its context', () {
+    late ExampleSessionContext session;
+    late InterModuleCommunication communication;
 
-    setUp(() {
-      access = ModuleBAccess.granted;
-      communication = ExampleInterModuleCommunication()
-        ..registerProviders(
-          data: [ModuleBDetailsProvider(access: () => access)],
-        );
+    setUp(() async {
+      session = ExampleSessionContext(DemoSessions.signedIn);
+      final host = ExampleHost(session: session, microApps: [CardsMicroApp()]);
+      await host.start();
+      communication = host.communication;
     });
 
     for (final scenario in dataScenarios) {
       final (status, code) = _expected[scenario.label]!;
-      test('When Module A runs "${scenario.label}", '
+      test('When Transfers runs "${scenario.label}", '
           'Then it receives $status ${code ?? 'with no error code'}', () async {
         // Given
-        access = scenario.access;
+        session.set(scenario.session);
 
         // When
         final response = await communication.request(
@@ -83,7 +88,7 @@ void main() {
         // When
         final messages = <String>[];
         for (final scenario in dataScenarios) {
-          access = scenario.access;
+          session.set(scenario.session);
           messages.add(
             describeOutcome(
               await communication.request(endpoint: scenario.endpoint),
@@ -98,20 +103,21 @@ void main() {
   });
 
   group('Given the example app', () {
-    testWidgets('When it starts, '
-        'Then Module A shows one outcome row per scenario', (tester) async {
+    testWidgets('When the user taps Transfers\' shortcut on Home, '
+        'Then Transfers shows one outcome row per scenario', (tester) async {
       // Given
-      final app = FoundationsExampleApp.create();
+      await tester.pumpWidget(FoundationsExampleApp.create());
+      await tester.pumpAndSettle();
 
       // When
-      await tester.pumpWidget(app);
+      await tester.tap(find.text('Transfers'));
       await tester.pumpAndSettle();
 
       // Then
       expect(find.byType(DsListTile), findsNWidgets(dataScenarios.length));
-      expect(find.textContaining('Loaded: Example details'), findsOneWidget);
+      expect(find.textContaining('Pays from card •••• 4821'), findsOneWidget);
       expect(
-        find.textContaining('This feature is unavailable'),
+        find.textContaining('This payment method is unavailable'),
         findsOneWidget,
       );
     });
@@ -137,7 +143,7 @@ void main() {
         context.dsColors.background,
         DsTheme.dark().extension<DsColors>()!.background,
       );
-      expect(find.byType(DsListTile), findsNWidgets(dataScenarios.length));
+      expect(find.text('Home'), findsOneWidget);
     });
   });
 }

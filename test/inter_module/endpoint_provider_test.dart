@@ -1,4 +1,5 @@
-// Feature: Endpoint providers and bulk registration (FR-046, FR-047, SC-014).
+// Feature: Endpoint providers and bulk registration, for data and UI
+// endpoints (FR-046, FR-047, SC-014; User Stories 1 and 5).
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundations/foundations.dart';
@@ -96,6 +97,31 @@ void main() {
     });
   });
 
+  group('Given the Cards home-banner provider', () {
+    const provider = CardsHomeBannerProvider();
+
+    test('When build is called directly with no parameters, '
+        'Then it returns 200 with a widget, synchronously', () {
+      // When
+      final response = provider.build(const {});
+
+      // Then
+      expect(response.statusCode, InterModuleStatusCode.ok);
+      expect(response.data, isA<Widget>());
+      expect(response.data!.key, const ValueKey('cards.home-banner'));
+    });
+
+    test('When its endpoint is read, '
+        'Then it declares its url and no required parameters', () {
+      // When
+      final endpoint = provider.endpoint;
+
+      // Then
+      expect(endpoint.url, '/cards/v1/home-banner');
+      expect(endpoint.requiredParameters, isEmpty);
+    });
+  });
+
   group('Given a communication that records registrations', () {
     late _RecordingCommunication communication;
 
@@ -134,6 +160,26 @@ void main() {
               .having((e) => e.type, 'type', EndpointType.data),
         ),
       );
+    });
+
+    test('When UI providers are registered in bulk, '
+        'Then each provider endpoint is registered as a UI endpoint', () {
+      // Given
+      const widgets = [CardsHomeBannerProvider()];
+
+      // When
+      communication.registerProviders(
+        data: [ModuleBDetailsProvider()],
+        widgets: widgets,
+      );
+
+      // Then
+      expect(communication.widgetRegistrations.map((e) => e.url), [
+        '/cards/v1/home-banner',
+      ]);
+      expect(communication.dataRegistrations.map((e) => e.url), [
+        '/module-b/v1/details',
+      ]);
     });
   });
 }

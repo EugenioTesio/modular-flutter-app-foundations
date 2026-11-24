@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../exceptions/duplicate_endpoint_exception.dart';
 import '../inter_module/inter_module_communication.dart';
@@ -141,6 +142,36 @@ abstract final class InterModuleConformance {
       body: _c11DuplicateData,
     ),
     ConformanceCase(
+      id: 'C12',
+      description:
+          'A UI request returns the exact widget synchronously with 200',
+      body: _c12WidgetSuccess,
+    ),
+    ConformanceCase(
+      id: 'C13',
+      description:
+          'An absent or null required UI parameter yields 400 without '
+          'calling the factory',
+      body: _c13WidgetRequiredMissing,
+    ),
+    ConformanceCase(
+      id: 'C14',
+      description: 'An unregistered UI endpoint yields 404',
+      body: _c14WidgetNotRegistered,
+    ),
+    ConformanceCase(
+      id: 'C15',
+      description: 'A factory that throws yields 500 without exception details',
+      body: _c15WidgetFactoryThrows,
+    ),
+    ConformanceCase(
+      id: 'C16',
+      description:
+          'Registering a UI address twice throws, and data and UI '
+          'registries are separate',
+      body: _c16WidgetRegistries,
+    ),
+    ConformanceCase(
       id: 'C17',
       description:
           'isRegistered reports each type separately and never calls '
@@ -206,7 +237,7 @@ void _expectMissingParameters(
 
 void _expectInternalError(
   _Checks checks,
-  _DataResponse response,
+  InterModuleCommunicationResponse<Object> response,
   String secret,
 ) {
   checks
@@ -507,6 +538,200 @@ Future<ConformanceResult> _c11DuplicateData(
       thrown is! DuplicateEndpointException ||
           (thrown.url == _url && thrown.type == EndpointType.data),
       'the exception must name the address and the data type',
+    );
+  return checks.result;
+}
+
+const _widgetUrl = '/conformance/v1/widget';
+
+typedef _WidgetResponse = InterModuleCommunicationResponse<Widget>;
+
+/// A UI factory that counts its calls and returns [widget].
+final class _CountingFactory {
+  _CountingFactory([this.widget = const SizedBox()]);
+
+  final Widget widget;
+  int calls = 0;
+
+  _WidgetResponse call(Map<String, Object?> parameters) {
+    calls++;
+    return _WidgetResponse.success(widget);
+  }
+}
+
+Future<ConformanceResult> _c12WidgetSuccess(
+  InterModuleCommunication Function() create,
+) async {
+  final checks = _Checks();
+  final communication = create();
+  // A fresh, non-const instance, so identity is meaningful.
+  final widget = SizedBox(key: UniqueKey());
+  final factory = _CountingFactory(widget);
+  communication.registerWidget(
+    endpoint: const InterModuleEndpoint(
+      url: _widgetUrl,
+      requiredParameters: {'id'},
+    ),
+    factory: factory.call,
+  );
+
+  // getWidget is synchronous: the factory has run when it returns.
+  final response = communication.getWidget(
+    endpoint: const InterModuleEndpoint(
+      url: _widgetUrl,
+      parameters: {'id': '1'},
+    ),
+  );
+
+  checks
+    ..that(
+      response.statusCode == 200,
+      'expected 200, got ${response.statusCode}',
+    )
+    ..that(
+      identical(response.data, widget),
+      'data must be the exact widget the factory built',
+    )
+    ..that(
+      factory.calls == 1,
+      'expected one factory call, got ${factory.calls}',
+    );
+  return checks.result;
+}
+
+Future<ConformanceResult> _c13WidgetRequiredMissing(
+  InterModuleCommunication Function() create,
+) async {
+  final checks = _Checks();
+  final communication = create();
+  final factory = _CountingFactory();
+  communication.registerWidget(
+    endpoint: const InterModuleEndpoint(
+      url: _widgetUrl,
+      requiredParameters: {'id'},
+    ),
+    factory: factory.call,
+  );
+
+  for (final (label, parameters) in const [
+    ('absent', <String, Object?>{}),
+    ('null', <String, Object?>{'id': null}),
+  ]) {
+    final response = communication.getWidget(
+      endpoint: InterModuleEndpoint(url: _widgetUrl, parameters: parameters),
+    );
+    checks
+      ..that(
+        response.statusCode == 400,
+        '$label: expected 400, got ${response.statusCode}',
+      )
+      ..that(
+        response.errorCode == InterModuleErrorCode.missingRequiredParameters,
+        '$label: expected missing_required_parameters, '
+        'got ${response.errorCode}',
+      )
+      ..that(response.data == null, '$label: expected no widget');
+  }
+  checks.that(factory.calls == 0, 'the factory must not be called');
+  return checks.result;
+}
+
+Future<ConformanceResult> _c14WidgetNotRegistered(
+  InterModuleCommunication Function() create,
+) async {
+  final checks = _Checks();
+  final communication = create();
+
+  final response = communication.getWidget(
+    endpoint: const InterModuleEndpoint(url: _widgetUrl),
+  );
+
+  checks
+    ..that(
+      response.statusCode == 404,
+      'expected 404, got ${response.statusCode}',
+    )
+    ..that(
+      response.errorCode == InterModuleErrorCode.endpointNotRegistered,
+      'expected endpoint_not_registered, got ${response.errorCode}',
+    )
+    ..that(response.data == null, 'expected no widget');
+  return checks.result;
+}
+
+Future<ConformanceResult> _c15WidgetFactoryThrows(
+  InterModuleCommunication Function() create,
+) async {
+  const secret = 'conformance-secret-C15';
+  final checks = _Checks();
+  final communication = create();
+  communication.registerWidget(
+    endpoint: const InterModuleEndpoint(url: _widgetUrl),
+    factory: (_) => throw StateError(secret),
+  );
+
+  final response = communication.getWidget(
+    endpoint: const InterModuleEndpoint(url: _widgetUrl),
+  );
+
+  _expectInternalError(checks, response, secret);
+  return checks.result;
+}
+
+Future<ConformanceResult> _c16WidgetRegistries(
+  InterModuleCommunication Function() create,
+) async {
+  final checks = _Checks();
+
+  // A second UI registration of the same address throws.
+  final duplicates = create();
+  const endpoint = InterModuleEndpoint(url: _widgetUrl);
+  duplicates.registerWidget(
+    endpoint: endpoint,
+    factory: _CountingFactory().call,
+  );
+  Object? thrown;
+  try {
+    duplicates.registerWidget(
+      endpoint: endpoint,
+      factory: _CountingFactory().call,
+    );
+  } catch (error) {
+    thrown = error;
+  }
+  checks
+    ..that(
+      thrown is DuplicateEndpointException,
+      'expected DuplicateEndpointException for a second UI registration',
+    )
+    ..that(
+      thrown is! DuplicateEndpointException ||
+          (thrown.url == _widgetUrl && thrown.type == EndpointType.widget),
+      'the exception must name the address and the widget type',
+    );
+
+  // One address registered as data and as UI: both work.
+  final separate = create();
+  final handler = _CountingHandler();
+  final factory = _CountingFactory();
+  try {
+    separate
+      ..register(endpoint: endpoint, handler: handler.call)
+      ..registerWidget(endpoint: endpoint, factory: factory.call);
+  } on Object {
+    checks.that(false, 'registering one address as data and as UI threw');
+    return checks.result;
+  }
+  final data = await separate.request(endpoint: endpoint);
+  final widget = separate.getWidget(endpoint: endpoint);
+  checks
+    ..that(
+      data.statusCode == 200 && handler.calls == 1,
+      'the data endpoint must still answer',
+    )
+    ..that(
+      widget.statusCode == 200 && factory.calls == 1,
+      'the UI endpoint must still answer',
     );
   return checks.result;
 }

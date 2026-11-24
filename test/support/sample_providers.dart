@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:foundations/foundations.dart';
 
 /// Module B's details endpoint, as in the reference article.
@@ -42,4 +43,23 @@ class ModuleBSummaryProvider implements DataEndpointProvider {
   Future<InterModuleCommunicationResponse<Map<String, Object?>>> handle(
     Map<String, Object?> parameters,
   ) async => const InterModuleCommunicationResponse.success({'count': 1});
+}
+
+/// Cards owns `/cards/v1/home-banner`: a banner whose card Cards chooses
+/// itself, so callers send no parameters. The banner loads its own data after
+/// it is placed.
+class CardsHomeBannerProvider implements WidgetEndpointProvider {
+  /// Creates the provider.
+  const CardsHomeBannerProvider();
+
+  @override
+  InterModuleEndpoint get endpoint =>
+      const InterModuleEndpoint(url: '/cards/v1/home-banner');
+
+  @override
+  InterModuleCommunicationResponse<Widget> build(
+    Map<String, Object?> parameters,
+  ) => const InterModuleCommunicationResponse.success(
+    Text('Primary card', key: ValueKey('cards.home-banner')),
+  );
 }
