@@ -11,6 +11,7 @@ import '../inter_module/inter_module_endpoint.dart';
 import '../routing/micro_app_route.dart';
 import 'micro_app.dart';
 import 'micro_app_context.dart';
+import 'modular_app_host.dart';
 import 'modular_app_route_checks.dart';
 
 /// Function that builds the [MicroAppContext] one micro app receives.
@@ -36,25 +37,27 @@ typedef MicroAppContextFactory = MicroAppContext Function(MicroApp microApp);
 ///
 /// Use this in the App Shell, a standalone example, or any other host to run
 /// the host sequence once, instead of writing it again: it checks the micro
-/// apps' declarations, gives each its own [MicroAppContext], initializes them,
-/// registers their endpoints, and hands the router and the localizations
-/// exactly what each micro app declared.
+/// apps' and the [host]'s declarations, gives each micro app its own
+/// [MicroAppContext], initializes them, registers every endpoint, and hands
+/// the router and the localizations exactly what was declared.
 ///
 /// This is **not** a router or a service locator: it builds no router and
-/// holds no global instance. The host builds the router from [routes] and
-/// guards it with [requiresAuthentication], and passes
-/// [localizationsDelegates] to its `MaterialApp`.
+/// holds no global instance. The host builds the router from [routes], which
+/// include its own [ModularAppHost.routes], guards it with
+/// [requiresAuthentication], and passes [localizationsDelegates] to its
+/// `MaterialApp`.
 ///
 /// Built-in: [bootstrap] runs, in order:
-/// 1. Checks that micro app ids and stored keys are unique. A duplicate
-///    throws a [ModularAppStartupException] before any micro app
+/// 1. Checks that micro app ids are unique, and that no stored key is
+///    declared twice, by two micro apps or by the [host] and a micro app. A
+///    duplicate throws a [ModularAppStartupException] before any micro app
 ///    initializes.
 /// 2. Builds one context per micro app with the host's
 ///    [MicroAppContextFactory].
 /// 3. Calls [MicroApp.initialize] on each micro app, in [microApps] order.
 /// 4. Reads each micro app's routes and localization delegates, and checks
-///    the route trees without changing them.
-/// 5. Registers every micro app's endpoint providers in one
+///    the micro apps' and the [host]'s route trees without changing them.
+/// 5. Registers the [host]'s and every micro app's endpoint providers in one
 ///    [InterModuleProviderRegistration.registerProviders] call.
 ///
 /// [dispose] then releases the micro apps in reverse order.
@@ -71,15 +74,24 @@ typedef MicroAppContextFactory = MicroAppContext Function(MicroApp microApp);
 /// ```dart
 /// final container = ModularAppContainer(
 ///   microApps: [HomeMicroApp(), AccountsMicroApp(), TransfersMicroApp()],
+///   host: ModularAppHost(
+///     routes: [
+///       MicroAppRoute(
+///         path: '/sign-in',
+///         builder: (context, parameters, body) => const SignInScreen(),
+///         requiresAuthentication: false,
+///       ),
+///     ],
+///     localizationsDelegates: [AppLocalizations.delegate],
+///   ),
 /// );
 /// await container.bootstrap(
 ///   communication: communication,
 ///   contextFor: contextFor,
-///   hostPaths: {'/sign-in'},
 /// );
 ///
 /// final router = GoRouter(
-///   routes: [signInRoute, ...container.routes.map(toGoRoute)],
+///   routes: [...container.routes.map(toGoRoute)],
 ///   redirect: (context, state) =>
 ///       container.requiresAuthentication(state.fullPath ?? '') == true &&
 ///               session.current is Unauthenticated
@@ -95,16 +107,25 @@ typedef MicroAppContextFactory = MicroAppContext Function(MicroApp microApp);
 /// ));
 /// ```
 final class ModularAppContainer {
-  /// Creates a container for [microApps].
+  /// Creates a container for [microApps] and the [host]'s own
+  /// declarations.
   ///
   /// Parameters:
   /// * [microApps] - The micro apps, in initialization order. The list is
   ///   copied, so later changes to it have no effect.
-  ModularAppContainer({required List<MicroApp> microApps})
-    : microApps = List.unmodifiable(microApps);
+  /// * [host] - The host's own routes, localization delegates, stored keys,
+  ///   and endpoints; defaults to none of them.
+  ModularAppContainer({
+    required List<MicroApp> microApps,
+    this.host = const ModularAppHost(),
+  }) : microApps = List.unmodifiable(microApps);
 
   /// Micro apps, in initialization order.
   final List<MicroApp> microApps;
+
+  /// Host's own declarations, gathered first and checked with the micro
+  /// apps'.
+  final ModularAppHost host;
 
   /// Micro apps whose [MicroApp.initialize] completed, in order.
   final List<MicroApp> _initialized = [];
@@ -116,33 +137,35 @@ final class ModularAppContainer {
   /// Whether [bootstrap] has completed and [dispose] hasn't run since.
   bool get isInitialized => _declarations != null && !_disposed;
 
-  /// Every micro app's top-level route nodes, in [microApps] order.
+  /// Every top-level route node: the [host]'s first, then each micro app's,
+  /// in [microApps] order.
   ///
-  /// The nodes are the micro apps' own objects, one list after another, so
-  /// each tree keeps the nesting, groups, and sign-in flags its team
-  /// declared. Pass them to the router as its route list.
+  /// The nodes are the declared objects, one list after another, so each
+  /// tree keeps the nesting, groups, and sign-in flags its owner declared.
+  /// Pass them to the router as its whole route list.
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   List<MicroAppRouteNode> get routes => _gathered.routes;
 
   /// Each micro app's route tree as declared, keyed by micro app id, in
-  /// [microApps] order.
+  /// [microApps] order. The [host]'s routes are not included.
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   Map<String, List<MicroAppRouteNode>> get routesByMicroApp =>
       _gathered.routesByMicroApp;
 
-  /// Every micro app's localization delegates, in [microApps] order.
+  /// Every localization delegate: the [host]'s first, then each micro
+  /// app's, in [microApps] order.
   ///
-  /// Pass them to `MaterialApp.localizationsDelegates`, with the host's own
-  /// delegates.
+  /// Pass them to `MaterialApp.localizationsDelegates`, with Flutter's own
+  /// delegates, such as `GlobalMaterialLocalizations.delegate`.
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   List<LocalizationsDelegate<Object?>> get localizationsDelegates =>
       _gathered.localizationsDelegates;
 
   /// Each micro app's localization delegates as declared, keyed by micro
-  /// app id, in [microApps] order.
+  /// app id, in [microApps] order. The [host]'s are not included.
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   Map<String, List<LocalizationsDelegate<Object?>>>
@@ -157,11 +180,17 @@ final class ModularAppContainer {
   /// Stored keys each micro app declared, keyed by micro app id.
   ///
   /// Use it for storage housekeeping that spans micro apps, such as deleting
-  /// every micro app's secure keys when the user signs out.
+  /// every micro app's secure keys when the user signs out. The [host]'s
+  /// keys are in [hostStoredKeys].
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   Map<String, Set<String>> get storedKeysByMicroApp =>
       _gathered.storedKeysByMicroApp;
+
+  /// Stored keys the [host] declared, as [bootstrap] read them.
+  ///
+  /// Throws a [StateError] before [bootstrap] completes.
+  Set<String> get hostStoredKeys => _gathered.hostStoredKeys;
 
   /// Endpoints each micro app offers, data and UI, keyed by micro app id.
   ///
@@ -172,6 +201,11 @@ final class ModularAppContainer {
   Map<String, List<InterModuleEndpoint>> get endpointsByMicroApp =>
       _gathered.endpointsByMicroApp;
 
+  /// Endpoints the [host] offers, data and UI, already registered.
+  ///
+  /// Throws a [StateError] before [bootstrap] completes.
+  List<InterModuleEndpoint> get hostEndpoints => _gathered.hostEndpoints;
+
   /// Returns whether the route at [fullPath] requires sign-in.
   ///
   /// Parameters:
@@ -180,8 +214,8 @@ final class ModularAppContainer {
   ///   as `GoRouterState.fullPath`.
   ///
   /// A route requires sign-in when its own [MicroAppRoute.requiresAuthentication]
-  /// is `true`, or any ancestor's is. Returns `null` when no micro app
-  /// declares [fullPath], such as a host route.
+  /// is `true`, or any ancestor's is. The [host]'s routes are covered
+  /// too. Returns `null` when no route has [fullPath].
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   bool? requiresAuthentication(String fullPath) =>
@@ -194,8 +228,8 @@ final class ModularAppContainer {
   ///   [requiresAuthentication].
   ///
   /// Use it to attribute the current screen, for example in screen-view
-  /// analytics or crash-report context. Returns `null` when no micro app
-  /// declares [fullPath].
+  /// analytics or crash-report context. Returns `null` for one of the
+  /// [host]'s routes, or when no route has [fullPath].
   ///
   /// Throws a [StateError] before [bootstrap] completes.
   String? microAppIdOf(String fullPath) =>
@@ -208,15 +242,14 @@ final class ModularAppContainer {
   ///   shares; the endpoint providers are registered in it.
   /// * [contextFor] - Builds the context of each micro app, with stores
   ///   limited to its [MicroApp.storedKeys].
-  /// * [hostPaths] - Paths the host keeps for itself, such as its sign-in
-  ///   screen; defaults to none. A micro app that declares one stops
-  ///   startup.
   ///
   /// Each micro app's initialization time is logged at debug level through
   /// its own [MicroAppContext.logger].
   ///
-  /// Throws a [ModularAppStartupException] for a duplicate id or stored key,
-  /// a route path that breaks a rule, or a second call. A failing
+  /// Throws a [ModularAppStartupException] for a duplicate id, a stored key
+  /// declared twice (the [host]'s included), a route path that breaks a rule
+  /// (including a host route inside a micro app's namespace), or a second
+  /// call. A failing
   /// [MicroApp.initialize] is logged, reported to the micro app's crash
   /// reporter, and rethrown. A [DuplicateEndpointException] from the
   /// registration propagates. After any failure, [dispose] still releases
@@ -224,7 +257,6 @@ final class ModularAppContainer {
   Future<void> bootstrap({
     required InterModuleCommunication communication,
     required MicroAppContextFactory contextFor,
-    Set<String> hostPaths = const {},
   }) async {
     if (_started) {
       throw const ModularAppStartupException(
@@ -234,9 +266,11 @@ final class ModularAppContainer {
     }
     _started = true;
 
-    // 1. Ids and stored keys are unique.
+    // 1. Ids and stored keys are unique. A null owner is the host.
     final ids = <String>{};
-    final keyOwners = <String, String>{};
+    final keyOwners = <String, String?>{
+      for (final key in host.storedKeys) key: null,
+    };
     for (final microApp in microApps) {
       if (!ids.add(microApp.id)) {
         throw ModularAppStartupException(
@@ -245,12 +279,13 @@ final class ModularAppContainer {
         );
       }
       for (final key in microApp.storedKeys) {
-        final owner = keyOwners[key];
-        if (owner != null) {
+        if (keyOwners.containsKey(key)) {
+          final owner = keyOwners[key];
+          final ownerLabel = owner == null ? 'the host' : '"$owner"';
           throw ModularAppStartupException(
             type: ModularAppStartupExceptionType.duplicateStoredKey,
             message:
-                'Stored key "$key" is declared by both "$owner" and '
+                'Stored key "$key" is declared by both $ownerLabel and '
                 '"${microApp.id}".',
           );
         }
@@ -297,7 +332,7 @@ final class ModularAppContainer {
     };
     final facts = ModularAppRouteChecks.check(
       routesByMicroApp,
-      hostPaths: hostPaths,
+      hostRoutes: host.routes,
     );
     final delegatesByMicroApp = <String, List<LocalizationsDelegate<Object?>>>{
       for (final microApp in microApps)
@@ -310,22 +345,31 @@ final class ModularAppContainer {
       for (final microApp in microApps) microApp.id: microApp.widgetEndpoints,
     };
 
-    // 5. Register every provider at once.
+    final hostData = List<DataEndpointProvider>.of(host.dataEndpoints);
+    final hostWidgets = List<WidgetEndpointProvider>.of(host.widgetEndpoints);
+
+    // 5. Register every provider at once, the host's first.
     communication.registerProviders(
-      data: [for (final providers in data.values) ...providers],
-      widgets: [for (final providers in widgets.values) ...providers],
+      data: [...hostData, for (final providers in data.values) ...providers],
+      widgets: [
+        ...hostWidgets,
+        for (final providers in widgets.values) ...providers,
+      ],
     );
 
     _declarations = _ModularAppDeclarations(
       routes: List.unmodifiable([
+        ...host.routes,
         for (final nodes in routesByMicroApp.values) ...nodes,
       ]),
       routesByMicroApp: Map.unmodifiable(routesByMicroApp),
       localizationsDelegates: List.unmodifiable([
+        ...host.localizationsDelegates,
         for (final delegates in delegatesByMicroApp.values) ...delegates,
       ]),
       localizationsDelegatesByMicroApp: Map.unmodifiable(delegatesByMicroApp),
       contexts: Map.unmodifiable(contexts),
+      hostStoredKeys: Set.unmodifiable(host.storedKeys),
       storedKeysByMicroApp: Map.unmodifiable({
         for (final microApp in microApps)
           microApp.id: Set<String>.unmodifiable(microApp.storedKeys),
@@ -337,6 +381,10 @@ final class ModularAppContainer {
             for (final provider in widgets[microApp.id]!) provider.endpoint,
           ]),
       }),
+      hostEndpoints: List.unmodifiable([
+        for (final provider in hostData) provider.endpoint,
+        for (final provider in hostWidgets) provider.endpoint,
+      ]),
       facts: Map.unmodifiable(facts),
     );
   }
@@ -412,8 +460,10 @@ final class _ModularAppDeclarations {
     required this.localizationsDelegates,
     required this.localizationsDelegatesByMicroApp,
     required this.contexts,
+    required this.hostStoredKeys,
     required this.storedKeysByMicroApp,
     required this.endpointsByMicroApp,
+    required this.hostEndpoints,
     required this.facts,
   });
 
@@ -423,7 +473,9 @@ final class _ModularAppDeclarations {
   final Map<String, List<LocalizationsDelegate<Object?>>>
   localizationsDelegatesByMicroApp;
   final Map<String, MicroAppContext> contexts;
+  final Set<String> hostStoredKeys;
   final Map<String, Set<String>> storedKeysByMicroApp;
   final Map<String, List<InterModuleEndpoint>> endpointsByMicroApp;
+  final List<InterModuleEndpoint> hostEndpoints;
   final Map<String, ModularAppRouteFacts> facts;
 }

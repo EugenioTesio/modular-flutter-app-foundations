@@ -206,25 +206,39 @@ When you call `bootstrap`, the container:
 1. Checks that micro app ids and stored keys are unique.
 2. Builds each micro app's context with your factory.
 3. Initializes the micro apps in list order.
-4. Checks the route trees, without changing them.
+4. Checks the route trees, yours and theirs, without changing them.
 5. Registers every endpoint provider at once.
 
 It builds no router. It hands you the routes and localization delegates
-exactly as each micro app declared them:
+exactly as they were declared. Your app's own declarations go in a
+`ModularAppHost`: its screens (paths start with `/` and stay outside every
+micro app's `/<microAppId>`), localization delegates, stored keys, and
+endpoints. They are checked with the micro apps' and listed first:
 
 ```dart
 final container = ModularAppContainer(
   microApps: [HomeMicroApp(), AccountsMicroApp(), TransfersMicroApp()],
+  host: ModularAppHost(
+    routes: [
+      MicroAppRoute(
+        path: '/sign-in',
+        builder: (context, parameters, body) => const SignInScreen(),
+        requiresAuthentication: false,
+      ),
+    ],
+    localizationsDelegates: [AppLocalizations.delegate],
+    storedKeys: {'app.locale'},
+    dataEndpoints: [AppVersionProvider(appInfo)], // /app/v1/version
+  ),
 );
 await container.bootstrap(
   communication: communication,
   // Shared services, plus stores limited to the micro app's storedKeys.
   contextFor: (microApp) => MicroAppContext(/* … */),
-  hostPaths: {'/sign-in'}, // the host's own screens
 );
 
 final router = GoRouter(
-  routes: [signInRoute, ...container.routes.map(toGoRoute)],
+  routes: [...container.routes.map(toGoRoute)],
   redirect: (context, state) =>
       container.requiresAuthentication(state.fullPath ?? '') == true &&
               session.current is Unauthenticated
@@ -244,15 +258,15 @@ The container also offers these:
 
 | Member | Use |
 |--------|-----|
-| `routesByMicroApp`, `localizationsDelegatesByMicroApp` | The same declarations, keyed by micro app id. |
-| `microAppIdOf(fullPath)` | The micro app that owns a screen, for analytics or crash context. |
-| `storedKeysByMicroApp` | Storage housekeeping, such as wiping secure keys on sign-out. |
-| `endpointsByMicroApp` | A diagnostics screen. |
+| `routesByMicroApp`, `localizationsDelegatesByMicroApp` | The micro apps' declarations, keyed by micro app id. |
+| `microAppIdOf(fullPath)` | The micro app that owns a screen, for analytics or crash context; `null` for a host route. |
+| `storedKeysByMicroApp`, `hostStoredKeys` | Storage housekeeping, such as wiping secure keys on sign-out. |
+| `endpointsByMicroApp`, `hostEndpoints` | A diagnostics screen. |
 | `contexts` | The context each micro app received. |
 
 A wiring mistake throws a `ModularAppStartupException`. Its `type` says which
 rule broke: a duplicate id, stored key, or route path, a malformed path, a
-path the host keeps for itself, or a second `bootstrap`. Its message names
+host route inside a micro app's paths, or a second `bootstrap`. Its message names
 every culprit.
 
 A micro app whose `initialize` fails is logged and reported, and the error is

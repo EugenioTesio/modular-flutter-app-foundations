@@ -12,7 +12,8 @@ import 'example_sign_in_guard.dart';
 /// wires two parts, each in its own file: [ExampleGoRoutes] maps the route
 /// trees to go_router, and [ExampleSignInGuard] is the `redirect` that sends
 /// a signed-out user from a route that requires sign-in to [signInPath],
-/// which shows [ExampleSignInRequiredScreen]. A location that matches no
+/// the host route that shows [ExampleSignInRequiredScreen]. A location that
+/// matches no
 /// route shows [ExampleRouteNotFoundScreen].
 ///
 /// The guard runs on every navigation, including deep links. It is not
@@ -47,13 +48,13 @@ final class ExampleNavigator implements AppNavigator {
   /// [install] hasn't run.
   GoRouter get router => _router ??= _buildRouter();
 
-  /// Installs the routes the micro apps declared, as they declared them.
-  /// The host calls it once, after [ModularAppContainer.bootstrap] has
-  /// checked them.
+  /// Installs the routes the host and the micro apps declared, as they
+  /// declared them. The host calls it once, after
+  /// [ModularAppContainer.bootstrap] has checked them.
   ///
   /// Parameters:
-  /// * [routes] - Every micro app's top-level route nodes, such as
-  ///   [ModularAppContainer.routes].
+  /// * [routes] - Every top-level route node, the host's and the micro
+  ///   apps', such as [ModularAppContainer.routes].
   /// * [requiresAuthentication] - Whether the route with a given full path
   ///   pattern requires sign-in, such as
   ///   [ModularAppContainer.requiresAuthentication].
@@ -64,13 +65,7 @@ final class ExampleNavigator implements AppNavigator {
     required String initialLocation,
   }) {
     _installation = (
-      routes: [
-        GoRoute(
-          path: signInPath,
-          builder: (context, state) => const ExampleSignInRequiredScreen(),
-        ),
-        ...ExampleGoRoutes.fromNodes(routes),
-      ],
+      routes: ExampleGoRoutes.fromNodes(routes),
       guard: ExampleSignInGuard(
         session: session,
         signInPath: signInPath,

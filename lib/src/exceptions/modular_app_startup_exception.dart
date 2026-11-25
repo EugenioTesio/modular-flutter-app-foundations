@@ -1,6 +1,7 @@
 /// @docImport '../common/result.dart';
 /// @docImport '../micro_app/micro_app.dart';
 /// @docImport '../micro_app/modular_app_container.dart';
+/// @docImport '../micro_app/modular_app_host.dart';
 /// @docImport '../routing/micro_app_route.dart';
 /// @docImport 'duplicate_endpoint_exception.dart';
 library;
@@ -10,12 +11,14 @@ enum ModularAppStartupExceptionType {
   /// Two micro apps share a [MicroApp.id].
   duplicateMicroAppId,
 
-  /// Two micro apps declare the same key in [MicroApp.storedKeys].
+  /// Two micro apps, or the host and a micro app, declare the same key in
+  /// [MicroApp.storedKeys] or [ModularAppHost.storedKeys].
   duplicateStoredKey,
 
-  /// A route path breaks the prefix rule: a top-level path, or a path
-  /// directly in a [MicroAppRouteGroup], doesn't start with `/<microAppId>`,
-  /// or a nested path starts with `/`.
+  /// A route path breaks the prefix rule: a micro app's top-level path, or a
+  /// path directly in a [MicroAppRouteGroup], doesn't start with
+  /// `/<microAppId>`, a host's such path doesn't start with `/`, or a nested
+  /// path starts with `/`.
   invalidRoutePath,
 
   /// Two routes share a full path, parameter names aside.
@@ -25,8 +28,8 @@ enum ModularAppStartupExceptionType {
   /// `/accounts/:id/cards/:id`.
   repeatedPathParameter,
 
-  /// A micro app declares a path that the host keeps for itself, such as its
-  /// sign-in screen.
+  /// A route in [ModularAppHost.routes] takes a path inside a micro app's
+  /// namespace: `/<microAppId>` or anything under it.
   reservedRoutePath,
 
   /// [ModularAppContainer.bootstrap] was called a second time.

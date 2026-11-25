@@ -27,22 +27,23 @@ MicroAppRoute _route(
   routes: routes,
 );
 
-/// Bootstraps a container whose micro apps declare [routesByMicroApp].
+/// Bootstraps a container whose micro apps declare [routesByMicroApp] and
+/// whose host declares [hostRoutes].
 Future<ModularAppContainer> _bootstrap(
   Map<String, List<MicroAppRouteNode>> routesByMicroApp, {
-  Set<String> hostPaths = const {},
+  List<MicroAppRouteNode> hostRoutes = const [],
 }) async {
   final container = ModularAppContainer(
     microApps: [
       for (final MapEntry(key: id, value: routes) in routesByMicroApp.entries)
         SampleMicroApp(id: id, routes: (_) => routes),
     ],
+    host: ModularAppHost(routes: hostRoutes),
   );
   final communication = ReferenceInterModuleCommunication();
   await container.bootstrap(
     communication: communication,
     contextFor: FakeMicroAppContexts.factory(communication: communication),
-    hostPaths: hostPaths,
   );
   return container;
 }
@@ -298,26 +299,163 @@ void main() {
         ]),
       );
     });
+  });
 
-    test('When a micro app declares a path the host keeps, '
-        'Then startup stops naming the path and the micro app', () {
+  group('Given host routes next to the micro apps\' routes', () {
+    final accounts = {
+      'accounts': [_route('/accounts')],
+    };
+
+    test('When a nested host route hangs off the root, '
+        'Then startup accepts it with its full path', () async {
       // Given
-      final routesByMicroApp = {
-        'auth': [_route('/auth/sign-in', requiresAuthentication: false)],
-      };
+      final hostRoutes = [
+        _route(
+          '/',
+          requiresAuthentication: false,
+          routes: [_route('sign-in', requiresAuthentication: false)],
+        ),
+      ];
 
       // When
-      final bootstrapping = _bootstrap(
-        routesByMicroApp,
-        hostPaths: {'/auth/sign-in'},
-      );
+      final container = await _bootstrap(accounts, hostRoutes: hostRoutes);
+
+      // Then
+      expect(container.requiresAuthentication('/sign-in'), isFalse);
+      expect(container.microAppIdOf('/sign-in'), isNull);
+    });
+
+    test('When there are no micro apps, '
+        'Then a host route may start with a parameter', () async {
+      // Given
+      final hostRoutes = [_route('/:slug', requiresAuthentication: false)];
+
+      // When
+      final container = await _bootstrap({}, hostRoutes: hostRoutes);
+
+      // Then
+      expect(container.routes, hostRoutes);
+    });
+  });
+
+  group('Given host routes that break a rule', () {
+    final accounts = {
+      'accounts': [_route('/accounts')],
+    };
+
+    test('When a host route is inside a micro app\'s namespace, '
+        'Then startup stops naming the path and the micro app', () {
+      // Given
+      final hostRoutes = [_route('/accounts/promo')];
+
+      // When
+      final bootstrapping = _bootstrap(accounts, hostRoutes: hostRoutes);
 
       // Then
       expect(
         bootstrapping,
         _startupFailure(ModularAppStartupExceptionType.reservedRoutePath, [
-          '/auth/sign-in',
-          '"auth"',
+          '/accounts/promo',
+          '"accounts"',
+        ]),
+      );
+    });
+
+    test('When a host route starts with a parameter, '
+        'Then startup stops, because it would match every micro app', () {
+      // Given
+      final hostRoutes = [
+        _route('/', routes: [_route(':slug')]),
+      ];
+
+      // When
+      final bootstrapping = _bootstrap(accounts, hostRoutes: hostRoutes);
+
+      // Then
+      expect(
+        bootstrapping,
+        _startupFailure(ModularAppStartupExceptionType.reservedRoutePath, [
+          '/:slug',
+          '"accounts"',
+        ]),
+      );
+    });
+
+    test('When a top-level host path has no leading slash, '
+        'Then startup stops naming the path and the host', () {
+      // Given
+      final hostRoutes = [_route('sign-in')];
+
+      // When
+      final bootstrapping = _bootstrap(accounts, hostRoutes: hostRoutes);
+
+      // Then
+      expect(
+        bootstrapping,
+        _startupFailure(ModularAppStartupExceptionType.invalidRoutePath, [
+          'sign-in',
+          'the host',
+        ]),
+      );
+    });
+
+    test('When a nested host path has a leading slash, '
+        'Then startup stops naming the path and the host', () {
+      // Given
+      final hostRoutes = [
+        _route('/settings', routes: [_route('/privacy')]),
+      ];
+
+      // When
+      final bootstrapping = _bootstrap(accounts, hostRoutes: hostRoutes);
+
+      // Then
+      expect(
+        bootstrapping,
+        _startupFailure(ModularAppStartupExceptionType.invalidRoutePath, [
+          '/privacy',
+          'the host',
+        ]),
+      );
+    });
+
+    test('When two host routes share a full path, '
+        'Then startup stops naming the path and the host', () {
+      // Given
+      final hostRoutes = [
+        _route('/', routes: [_route('help')]),
+        _route('/help'),
+      ];
+
+      // When
+      final bootstrapping = _bootstrap(accounts, hostRoutes: hostRoutes);
+
+      // Then
+      expect(
+        bootstrapping,
+        _startupFailure(ModularAppStartupExceptionType.duplicateRoutePath, [
+          '/help',
+          'the host',
+        ]),
+      );
+    });
+
+    test('When a host full path repeats a parameter name, '
+        'Then startup stops naming the path and the parameter', () {
+      // Given
+      final hostRoutes = [
+        _route('/promo/:id', routes: [_route('items/:id')]),
+      ];
+
+      // When
+      final bootstrapping = _bootstrap(accounts, hostRoutes: hostRoutes);
+
+      // Then
+      expect(
+        bootstrapping,
+        _startupFailure(ModularAppStartupExceptionType.repeatedPathParameter, [
+          '/promo/:id/items/:id',
+          'the host',
         ]),
       );
     });

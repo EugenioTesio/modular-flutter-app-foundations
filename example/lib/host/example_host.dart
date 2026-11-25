@@ -14,12 +14,13 @@ import 'example_services.dart';
 ///    shared services are the same instances for everyone; the stores are
 ///    limited to each micro app's own keys.
 /// 3. Initializes the micro apps, in list order.
-/// 4. Checks every declared route, keeping the trees as declared. A broken
-///    or duplicate path, or one that takes the sign-in path, stops startup.
+/// 4. Checks every declared route, the host's sign-in route included,
+///    keeping the trees as declared. A broken or duplicate path, or a host
+///    route inside a micro app's paths, stops startup.
 /// 5. Registers every declared endpoint provider in one step.
 ///
-/// The host then installs the routes in the navigator, which sends a
-/// signed-out user to sign-in for routes that require it. [dispose]
+/// The host then installs every route, its own first, in the navigator,
+/// which sends a signed-out user to sign-in for routes that require it. [dispose]
 /// disposes the micro apps in reverse order, and keeps going when one fails.
 final class ExampleHost {
   /// Creates a host for [microApps].
@@ -32,7 +33,19 @@ final class ExampleHost {
     required this.session,
     Map<String, Object?> apiResponses = const {},
     this.initialLocation = '/',
-  }) : container = ModularAppContainer(microApps: microApps),
+  }) : container = ModularAppContainer(
+         microApps: microApps,
+         host: ModularAppHost(
+           routes: [
+             MicroAppRoute(
+               path: ExampleNavigator.signInPath,
+               builder: (context, parameters, body) =>
+                   const ExampleSignInRequiredScreen(),
+               requiresAuthentication: false,
+             ),
+           ],
+         ),
+       ),
        apiClient = ExampleApiClient(responses: apiResponses),
        navigator = ExampleNavigator(session: session);
 
@@ -73,7 +86,6 @@ final class ExampleHost {
     await container.bootstrap(
       communication: communication,
       contextFor: _contextFor,
-      hostPaths: const {ExampleNavigator.signInPath},
     );
     navigator.install(
       routes: container.routes,

@@ -1,5 +1,6 @@
 /// @docImport '../capabilities/session_context.dart';
 /// @docImport '../micro_app/micro_app.dart';
+/// @docImport '../micro_app/modular_app_host.dart';
 /// @docImport 'app_navigator.dart';
 library;
 
@@ -73,6 +74,9 @@ enum RoutePresentation {
 /// * A full path that another micro app navigates to is part of the owning
 ///   micro app's public surface, like an endpoint address: changing it is a
 ///   breaking change for its callers.
+/// * The host's own routes, in [ModularAppHost.routes], follow the
+///   same rules, except that their absolute paths start with `/` and stay
+///   outside every micro app's `/<microAppId>`.
 ///
 /// Usage from a micro app:
 /// ```dart

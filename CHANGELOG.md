@@ -41,12 +41,14 @@ Both are re-exported unchanged from `package:foundations/foundations.dart`.
 - **Micro app integration**: `MicroApp`, `MicroAppContext`, and the
   router-neutral route tree `MicroAppRoute` and `MicroAppRouteGroup`, with
   `AppNavigator` and `NavigationResult`.
-- **Modular app container**: `ModularAppContainer` and
+- **Modular app container**: `ModularAppContainer`, `ModularAppHost`, and
   `MicroAppContextFactory`. The container runs the host sequence: it checks
-  ids, stored keys, and route trees, builds one context per micro app,
+  ids, stored keys, and route trees, the host's own declarations
+  (`ModularAppHost`: routes, delegates, stored keys, endpoints) included,
+  builds one context per micro app,
   initializes the micro apps, registers their endpoints, and disposes them in
   reverse order. It hands the routes and localization delegates over as
-  declared, combined or by micro app, and offers `requiresAuthentication`
+  declared, combined (the host's first) or by micro app, and offers `requiresAuthentication`
   and `microAppIdOf` lookups by full path.
 - **Outcomes and exceptions**: `Result` (`Ok` and `Err`), `ApiException`,
   `StorageException`, `NavigationException` (`RouteNotFoundException`),

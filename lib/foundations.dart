@@ -15,7 +15,8 @@
 /// * **Micro app integration**: [MicroApp], [MicroAppContext], and the
 ///   router-neutral route tree ([MicroAppRoute] and [MicroAppRouteGroup]),
 ///   so any host integrates any micro app the same way, and
-///   [ModularAppContainer], which runs that integration for a host.
+///   [ModularAppContainer], which runs that integration for a host, with
+///   the host's own declarations in a [ModularAppHost].
 /// * **Outcomes and exceptions**: [Result] with [Ok] and [Err], and the
 ///   exceptions [ApiException], [StorageException], [NavigationException],
 ///   [DuplicateEndpointException], and [ModularAppStartupException].
@@ -86,6 +87,7 @@
 /// @docImport 'src/micro_app/micro_app.dart';
 /// @docImport 'src/micro_app/micro_app_context.dart';
 /// @docImport 'src/micro_app/modular_app_container.dart';
+/// @docImport 'src/micro_app/modular_app_host.dart';
 /// @docImport 'src/routing/app_navigator.dart';
 /// @docImport 'src/routing/micro_app_route.dart';
 library;
@@ -118,5 +120,6 @@ export 'src/inter_module/inter_module_validator.dart';
 export 'src/micro_app/micro_app.dart';
 export 'src/micro_app/micro_app_context.dart';
 export 'src/micro_app/modular_app_container.dart';
+export 'src/micro_app/modular_app_host.dart';
 export 'src/routing/app_navigator.dart';
 export 'src/routing/micro_app_route.dart';

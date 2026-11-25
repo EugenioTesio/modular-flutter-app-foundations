@@ -47,6 +47,34 @@ final class _LocalizedMicroApp extends SampleMicroApp {
   List<LocalizationsDelegate<Object?>> get localizationsDelegates => delegates;
 }
 
+/// The host's data endpoint `/app/v1/version`.
+final class _AppVersionProvider implements DataEndpointProvider {
+  const _AppVersionProvider();
+
+  @override
+  InterModuleEndpoint get endpoint =>
+      const InterModuleEndpoint(url: '/app/v1/version');
+
+  @override
+  Future<InterModuleCommunicationResponse<Map<String, Object?>>> handle(
+    Map<String, Object?> parameters,
+  ) async => const InterModuleCommunicationResponse.success({'version': '1'});
+}
+
+/// The host's widget endpoint `/app/v1/banner`.
+final class _AppBannerProvider implements WidgetEndpointProvider {
+  const _AppBannerProvider();
+
+  @override
+  InterModuleEndpoint get endpoint =>
+      const InterModuleEndpoint(url: '/app/v1/banner');
+
+  @override
+  InterModuleCommunicationResponse<Widget> build(
+    Map<String, Object?> parameters,
+  ) => const InterModuleCommunicationResponse.success(SizedBox());
+}
+
 Matcher _startupFailure(
   ModularAppStartupExceptionType type,
   List<String> culprits,
@@ -71,17 +99,13 @@ void main() {
     crashReporter = RecordingCrashReporter();
   });
 
-  Future<void> bootstrap(
-    ModularAppContainer container, {
-    Set<String> hostPaths = const {},
-  }) => container.bootstrap(
+  Future<void> bootstrap(ModularAppContainer container) => container.bootstrap(
     communication: communication,
     contextFor: FakeMicroAppContexts.factory(
       communication: communication,
       logger: logger,
       crashReporter: crashReporter,
     ),
-    hostPaths: hostPaths,
   );
 
   group('Given the Home, Accounts, and Transfers micro apps', () {
@@ -306,6 +330,157 @@ void main() {
     });
   });
 
+  group('Given micro apps and the host\'s own declarations', () {
+    const hostDelegate = _NamedDelegate('host');
+    late MicroAppRoute signIn;
+    late MicroAppRoute settings;
+    late MicroAppRouteGroup help;
+    late ModularAppContainer container;
+
+    setUp(() async {
+      signIn = MicroAppRoute(
+        path: '/sign-in',
+        builder: (context, parameters, body) => const SizedBox(),
+        requiresAuthentication: false,
+      );
+      settings = MicroAppRoute(
+        path: '/settings',
+        builder: (context, parameters, body) => const SizedBox(),
+        routes: [
+          MicroAppRoute(
+            path: 'privacy',
+            builder: (context, parameters, body) => const SizedBox(),
+          ),
+        ],
+      );
+      help = MicroAppRouteGroup(
+        builder: (context, child) => child,
+        routes: [
+          MicroAppRoute(
+            path: '/help',
+            builder: (context, parameters, body) => const SizedBox(),
+            requiresAuthentication: false,
+          ),
+        ],
+      );
+      container = ModularAppContainer(
+        microApps: [SampleAccountsMicroApp(), SampleTransfersMicroApp()],
+        host: ModularAppHost(
+          routes: [signIn, settings, help],
+          localizationsDelegates: const [hostDelegate],
+          storedKeys: const {'app.locale'},
+          dataEndpoints: const [_AppVersionProvider()],
+          widgetEndpoints: const [_AppBannerProvider()],
+        ),
+      );
+      await bootstrap(container);
+    });
+
+    test('When all routes are read, '
+        'Then the host routes come first, as declared', () {
+      // Given
+      final byMicroApp = container.routesByMicroApp;
+
+      // When
+      final routes = container.routes;
+
+      // Then
+      expect(routes, [
+        same(signIn),
+        same(settings),
+        same(help),
+        for (final nodes in byMicroApp.values)
+          for (final node in nodes) same(node),
+      ]);
+    });
+
+    test('When the routes are read by micro app, '
+        'Then the host routes are not among them', () {
+      // Given: the bootstrapped container.
+
+      // When
+      final byMicroApp = container.routesByMicroApp;
+
+      // Then
+      expect(byMicroApp.keys, ['accounts', 'transfers']);
+      expect(
+        byMicroApp.values.expand((nodes) => nodes),
+        isNot(anyOf(contains(signIn), contains(settings), contains(help))),
+      );
+    });
+
+    test('When a host route is looked up, '
+        'Then it has a sign-in requirement and no micro app', () {
+      // Given
+      const paths = ['/sign-in', '/settings', '/settings/privacy', '/help'];
+
+      // When
+      final requiresAuthentication = [
+        for (final path in paths) container.requiresAuthentication(path),
+      ];
+      final owners = [for (final path in paths) container.microAppIdOf(path)];
+
+      // Then: privacy inherits the requirement of settings.
+      expect(requiresAuthentication, [false, true, true, false]);
+      expect(owners, everyElement(isNull));
+      expect(container.microAppIdOf('/transfers'), 'transfers');
+    });
+
+    test('When the localization delegates are read, '
+        'Then the host\'s come first and stay out of the by-micro-app map', () {
+      // Given: the bootstrapped container.
+
+      // When
+      final delegates = container.localizationsDelegates;
+
+      // Then
+      expect(delegates.first, same(hostDelegate));
+      expect(delegates, [
+        hostDelegate,
+        for (final list in container.localizationsDelegatesByMicroApp.values)
+          ...list,
+      ]);
+    });
+
+    test('When the stored keys are read, '
+        'Then the host\'s are kept apart from the micro apps\'', () {
+      // Given: the bootstrapped container.
+
+      // When
+      final hostKeys = container.hostStoredKeys;
+
+      // Then
+      expect(hostKeys, {'app.locale'});
+      expect(container.storedKeysByMicroApp.keys, ['accounts', 'transfers']);
+    });
+
+    test('When the endpoints are read, '
+        'Then the host\'s are listed and registered', () {
+      // Given: the bootstrapped container.
+
+      // When
+      final urls = [for (final e in container.hostEndpoints) e.url];
+
+      // Then
+      expect(urls, ['/app/v1/version', '/app/v1/banner']);
+      expect(
+        communication.isRegistered(
+          url: '/app/v1/version',
+          type: EndpointType.data,
+        ),
+        isTrue,
+      );
+      expect(
+        communication.isRegistered(
+          url: '/app/v1/banner',
+          type: EndpointType.widget,
+        ),
+        isTrue,
+      );
+      expect(container.endpointsByMicroApp.keys, ['accounts', 'transfers']);
+    });
+  });
+
   group('Given micro apps whose declarations collide', () {
     test('When two micro apps share an id, '
         'Then startup stops naming the id before any initialize', () async {
@@ -352,6 +527,59 @@ void main() {
           '"accounts"',
           '"transfers"',
         ]),
+      );
+    });
+
+    test(
+      'When the host and a micro app declare the same stored key, '
+      'Then startup stops naming the key, the host, and the micro app',
+      () async {
+        // Given
+        final journal = <String>[];
+        final container = ModularAppContainer(
+          microApps: [SampleAccountsMicroApp(journal: journal)],
+          host: const ModularAppHost(storedKeys: {'accounts.last_balance'}),
+        );
+
+        // When
+        final bootstrapping = bootstrap(container);
+
+        // Then
+        await expectLater(
+          bootstrapping,
+          _startupFailure(ModularAppStartupExceptionType.duplicateStoredKey, [
+            'accounts.last_balance',
+            'the host',
+            '"accounts"',
+          ]),
+        );
+        expect(journal, isEmpty);
+      },
+    );
+
+    test('When the host and a micro app declare the same provider URL, '
+        'Then DuplicateEndpointException propagates', () async {
+      // Given
+      final container = ModularAppContainer(
+        microApps: [SampleAccountsMicroApp()],
+        host: ModularAppHost(
+          dataEndpoints: [AccountsBalanceProvider(RecordingApiClient())],
+        ),
+      );
+
+      // When
+      final bootstrapping = bootstrap(container);
+
+      // Then
+      await expectLater(
+        bootstrapping,
+        throwsA(
+          isA<DuplicateEndpointException>().having(
+            (e) => e.url,
+            'url',
+            '/accounts/v1/balance',
+          ),
+        ),
       );
     });
 
@@ -511,7 +739,9 @@ void main() {
         () => container.localizationsDelegatesByMicroApp,
         () => container.contexts,
         () => container.storedKeysByMicroApp,
+        () => container.hostStoredKeys,
         () => container.endpointsByMicroApp,
+        () => container.hostEndpoints,
         () => container.requiresAuthentication('/accounts'),
         () => container.microAppIdOf('/accounts'),
       ];
@@ -535,6 +765,47 @@ void main() {
 
       // Then
       expect(container.microApps.map((app) => app.id), ['accounts']);
+    });
+  });
+
+  group('Given a host whose lists are changed after bootstrap', () {
+    test('When the gathered declarations are read, '
+        'Then they keep what bootstrap read', () async {
+      // Given
+      final signIn = MicroAppRoute(
+        path: '/sign-in',
+        builder: (context, parameters, body) => const SizedBox(),
+        requiresAuthentication: false,
+      );
+      final routes = <MicroAppRouteNode>[signIn];
+      final delegates = <LocalizationsDelegate<Object?>>[
+        const _NamedDelegate('host'),
+      ];
+      final storedKeys = {'app.locale'};
+      final data = <DataEndpointProvider>[const _AppVersionProvider()];
+      final container = ModularAppContainer(
+        microApps: const [],
+        host: ModularAppHost(
+          routes: routes,
+          localizationsDelegates: delegates,
+          storedKeys: storedKeys,
+          dataEndpoints: data,
+        ),
+      );
+      await bootstrap(container);
+
+      // When
+      routes.clear();
+      delegates.clear();
+      storedKeys.clear();
+      data.clear();
+
+      // Then
+      expect(container.routes, [same(signIn)]);
+      expect(container.localizationsDelegates, hasLength(1));
+      expect(container.hostStoredKeys, {'app.locale'});
+      expect(container.hostEndpoints.single.url, '/app/v1/version');
+      expect(() => container.hostStoredKeys.clear(), throwsUnsupportedError);
     });
   });
 }

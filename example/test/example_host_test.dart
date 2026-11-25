@@ -266,6 +266,25 @@ void main() {
     });
   });
 
+  group('Given the example host', () {
+    test('When it starts, '
+        'Then its sign-in route is a host route open to everyone', () async {
+      // Given
+      final host = _host([
+        _RecordingMicroApp('public', routes: [_route('/public')]),
+      ]);
+
+      // When
+      await host.start();
+
+      // Then
+      const signIn = ExampleNavigator.signInPath;
+      expect(host.container.routes.first, same(host.container.host.routes[0]));
+      expect(host.container.requiresAuthentication(signIn), isFalse);
+      expect(host.container.microAppIdOf(signIn), isNull);
+    });
+  });
+
   group('Given a signed-out user', () {
     Future<ExampleNavigator> pumpHost(
       WidgetTester tester, {
