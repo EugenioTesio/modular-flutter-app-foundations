@@ -40,7 +40,8 @@ hosts) must change, with before and after code. Write "None" otherwise. -->
 - [ ] No new capability: the capability set is fixed. A new one needs a
   specification change first.
 - [ ] No concrete implementations, vendor types, global state, or new runtime
-  dependencies.
+  dependencies. `ModularAppContainer` is the one concrete class, and it
+  implements no capability.
 
 **Deprecation**
 

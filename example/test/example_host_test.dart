@@ -92,7 +92,7 @@ MicroAppRoute _route(
 );
 
 Matcher _startupError(List<String> parts) => throwsA(
-  isA<StateError>().having(
+  isA<ModularAppStartupException>().having(
     (e) => e.message,
     'message',
     allOf([for (final part in parts) contains(part)]),
@@ -218,11 +218,13 @@ void main() {
       await expectLater(
         starting,
         throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('"same"'),
-          ),
+          isA<ModularAppStartupException>()
+              .having(
+                (e) => e.type,
+                'type',
+                ModularAppStartupExceptionType.duplicateMicroAppId,
+              )
+              .having((e) => e.message, 'message', contains('"same"')),
         ),
       );
     });

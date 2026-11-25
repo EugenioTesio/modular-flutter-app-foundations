@@ -1,7 +1,7 @@
 // In-memory fakes for the eleven capability contracts (FR-026, FR-027).
 //
 // Each one runs without a device, platform channels, network access, or Core,
-// which is what lets micro app tests run headless in CI (SC-007).
+// which is what lets micro app tests run headless (SC-007).
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -510,5 +510,46 @@ final class FakeDevicePermissions implements DevicePermissions {
   Future<bool> openAppSettings() async {
     settingsOpened++;
     return true;
+  }
+}
+
+/// Context factories built from the fakes above, as static helpers.
+abstract final class FakeMicroAppContexts {
+  /// Returns a [MicroAppContextFactory] whose contexts share [communication]
+  /// and one instance of every other fake, with stores limited to each micro
+  /// app's declared keys over the shared [storage].
+  static MicroAppContextFactory factory({
+    required InterModuleCommunication communication,
+    AppLogger logger = const NoOpAppLogger(),
+    CrashReporter crashReporter = const NoOpCrashReporter(),
+    Map<String, String>? storage,
+  }) {
+    final entries = storage ?? {};
+    final secureEntries = <String, String>{};
+    final apiClient = RecordingApiClient();
+    final featureFlags = InMemoryFeatureFlags();
+    final navigator = FakeAppNavigator();
+    final session = FakeSessionContext();
+    final devicePermissions = FakeDevicePermissions();
+    return (microApp) => MicroAppContext(
+      communication: communication,
+      apiClient: apiClient,
+      analytics: const NoOpAnalytics(),
+      crashReporter: crashReporter,
+      logger: logger,
+      featureFlags: featureFlags,
+      keyValueStore: InMemoryKeyValueStore(
+        declaredKeys: microApp.storedKeys,
+        entries: entries,
+      ),
+      secureKeyValueStore: InMemorySecureKeyValueStore(
+        declaredKeys: microApp.storedKeys,
+        entries: secureEntries,
+      ),
+      navigator: navigator,
+      session: session,
+      devicePermissions: devicePermissions,
+      appInfo: const FakeAppInfo(),
+    );
   }
 }

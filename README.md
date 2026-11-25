@@ -5,9 +5,10 @@ only package a micro app depends on. With it, micro apps exchange data and UI
 without importing each other, use platform capabilities without depending on
 a vendor, and plug into any host the same way.
 
-Foundations contains contracts only. Core implements them and gives each micro
-app its own instances through a `MicroAppContext`. There are no global
-instances, so a test can replace any contract with a hand-written fake.
+Foundations contains contracts, plus `ModularAppContainer`, which starts a
+host's micro apps. Core implements the contracts and gives each micro app its
+own instances through a `MicroAppContext`. There are no global instances, so a
+test can replace any contract with a hand-written fake.
 
 Foundations also delivers two first-party packages, re-exported unchanged:
 
@@ -194,6 +195,69 @@ micro apps: Home, Transfers, and Cards.
 cd example && flutter run
 ```
 
+## Start micro apps in a host
+
+`ModularAppContainer` runs the host sequence for the App Shell, a standalone
+example, or any other host. It's the counterpart of `AppShellContainer` in
+`flutter_enterprise_architecture`, without tenants or a route type parameter.
+
+When you call `bootstrap`, the container:
+
+1. Checks that micro app ids and stored keys are unique.
+2. Builds each micro app's context with your factory.
+3. Initializes the micro apps in list order.
+4. Checks the route trees, without changing them.
+5. Registers every endpoint provider at once.
+
+It builds no router. It hands you the routes and localization delegates
+exactly as each micro app declared them:
+
+```dart
+final container = ModularAppContainer(
+  microApps: [HomeMicroApp(), AccountsMicroApp(), TransfersMicroApp()],
+);
+await container.bootstrap(
+  communication: communication,
+  // Shared services, plus stores limited to the micro app's storedKeys.
+  contextFor: (microApp) => MicroAppContext(/* … */),
+  hostPaths: {'/sign-in'}, // the host's own screens
+);
+
+final router = GoRouter(
+  routes: [signInRoute, ...container.routes.map(toGoRoute)],
+  redirect: (context, state) =>
+      container.requiresAuthentication(state.fullPath ?? '') == true &&
+              session.current is Unauthenticated
+          ? '/sign-in'
+          : null,
+);
+runApp(MaterialApp.router(
+  routerConfig: router,
+  localizationsDelegates: container.localizationsDelegates,
+));
+
+// On teardown: disposes in reverse order and returns any failures.
+await container.dispose();
+```
+
+The container also offers these:
+
+| Member | Use |
+|--------|-----|
+| `routesByMicroApp`, `localizationsDelegatesByMicroApp` | The same declarations, keyed by micro app id. |
+| `microAppIdOf(fullPath)` | The micro app that owns a screen, for analytics or crash context. |
+| `storedKeysByMicroApp` | Storage housekeeping, such as wiping secure keys on sign-out. |
+| `endpointsByMicroApp` | A diagnostics screen. |
+| `contexts` | The context each micro app received. |
+
+A wiring mistake throws a `ModularAppStartupException`. Its `type` says which
+rule broke: a duplicate id, stored key, or route path, a malformed path, a
+path the host keeps for itself, or a second `bootstrap`. Its message names
+every culprit.
+
+A micro app whose `initialize` fails is logged and reported, and the error is
+rethrown.
+
 ## Inclusion rules
 
 Every micro app, Core, and every host depends on Foundations, so its public
@@ -212,8 +276,9 @@ surface stays small. A change is rejected when it adds any of the following:
   (general and secure), navigation, session, and device permissions. Adding
   one needs a specification change first.
 - **Implementations, vendor types, global state, or new runtime
-  dependencies.** The runtime dependencies are `flutter`, `design_system`,
-  and `switchable_state`.
+  dependencies.** The one concrete class is `ModularAppContainer`, which
+  implements no capability. The runtime dependencies are `flutter`,
+  `design_system`, and `switchable_state`.
 
 ## Versioning and deprecation
 

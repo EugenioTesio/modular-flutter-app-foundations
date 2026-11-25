@@ -6,7 +6,6 @@ import 'package:foundations/foundations.dart';
 
 import '../support/fakes.dart';
 import '../support/reference_host.dart';
-import '../support/reference_startup_exception.dart';
 import '../support/sample_micro_apps.dart';
 
 const _signedIn = Authenticated(UserIdentity(userId: 'user-1'));
@@ -25,7 +24,7 @@ ReferenceHost _host(
 );
 
 Matcher _startupFailureNaming(List<String> culprits) => throwsA(
-  isA<ReferenceStartupException>().having(
+  isA<ModularAppStartupException>().having(
     (exception) => exception.message,
     'message',
     allOf([for (final culprit in culprits) contains(culprit)]),
@@ -278,19 +277,25 @@ void main() {
       // Given: the started host.
 
       // When
-      final paths = host.routes.map((entry) => entry.fullPath);
-
-      // Then
-      expect(
-        paths,
-        containsAll([
+      final owners = {
+        for (final path in const [
           '/home',
           '/auth/sign-in',
           '/accounts/details/:accountId',
           '/accounts/tabs/history',
           '/transfers',
-        ]),
-      );
+        ])
+          path: host.container.microAppIdOf(path),
+      };
+
+      // Then
+      expect(owners, {
+        '/home': 'home',
+        '/auth/sign-in': 'auth',
+        '/accounts/details/:accountId': 'accounts',
+        '/accounts/tabs/history': 'accounts',
+        '/transfers': 'transfers',
+      });
       expect(host.localizationsDelegates, hasLength(4));
       expect(host.navigator.target, same(host.router));
     });
@@ -338,8 +343,10 @@ void main() {
         'home.dispose',
       ]);
       expect(failures.map((failure) => failure.$1), ['accounts']);
-      expect(logger.entries.single.level, LogLevel.error);
-      expect(logger.entries.single.context, {'microAppId': 'accounts'});
+      final error = logger.entries.singleWhere(
+        (entry) => entry.level == LogLevel.error,
+      );
+      expect(error.context, {'microAppId': 'accounts'});
     });
   });
 }

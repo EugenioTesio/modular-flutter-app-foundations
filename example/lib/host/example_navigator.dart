@@ -3,15 +3,14 @@ import 'package:foundations/foundations.dart';
 import 'package:go_router/go_router.dart';
 
 import 'example_go_routes.dart';
-import 'example_route_helper.dart';
 import 'example_sign_in_guard.dart';
 
 /// An [AppNavigator] over go_router, built from the micro apps' route
 /// declarations, as Core does.
 ///
-/// [install] wires three parts, each in its own file:
-/// [ExampleRouteHelper] checks the declarations, [ExampleGoRoutes] maps
-/// them to go_router, and [ExampleSignInGuard] is the `redirect` that sends
+/// [install] takes what [ModularAppContainer] gathered and checked, and
+/// wires two parts, each in its own file: [ExampleGoRoutes] maps the route
+/// trees to go_router, and [ExampleSignInGuard] is the `redirect` that sends
 /// a signed-out user from a route that requires sign-in to [signInPath],
 /// which shows [ExampleSignInRequiredScreen]. A location that matches no
 /// route shows [ExampleRouteNotFoundScreen].
@@ -48,37 +47,34 @@ final class ExampleNavigator implements AppNavigator {
   /// [install] hasn't run.
   GoRouter get router => _router ??= _buildRouter();
 
-  /// Checks and installs every route the micro apps declared, keyed by micro
-  /// app id. The host calls it once, after every micro app has initialized.
+  /// Installs the routes the micro apps declared, as they declared them.
+  /// The host calls it once, after [ModularAppContainer.bootstrap] has
+  /// checked them.
   ///
   /// Parameters:
-  /// * [routesByMicroAppId] - Each micro app's top-level route nodes.
+  /// * [routes] - Every micro app's top-level route nodes, such as
+  ///   [ModularAppContainer.routes].
+  /// * [requiresAuthentication] - Whether the route with a given full path
+  ///   pattern requires sign-in, such as
+  ///   [ModularAppContainer.requiresAuthentication].
   /// * [initialLocation] - The location the router opens first.
-  ///
-  /// Throws a [StateError] naming the path, and installs nothing, when a
-  /// route breaks a startup rule (see [ExampleRouteHelper.validate]),
-  /// including taking [signInPath].
-  void install(
-    Map<String, List<MicroAppRouteNode>> routesByMicroAppId, {
+  void install({
+    required List<MicroAppRouteNode> routes,
+    required bool? Function(String fullPath) requiresAuthentication,
     required String initialLocation,
   }) {
-    final entries = ExampleRouteHelper.validate(
-      routesByMicroAppId,
-      reservedPaths: const {signInPath: 'the example host'},
-    );
     _installation = (
       routes: [
         GoRoute(
           path: signInPath,
           builder: (context, state) => const ExampleSignInRequiredScreen(),
         ),
-        for (final routes in routesByMicroAppId.values)
-          ...ExampleGoRoutes.fromNodes(routes),
+        ...ExampleGoRoutes.fromNodes(routes),
       ],
       guard: ExampleSignInGuard(
         session: session,
         signInPath: signInPath,
-        routes: entries,
+        requiresAuthentication: requiresAuthentication,
       ),
       initialLocation: initialLocation,
     );

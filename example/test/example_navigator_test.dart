@@ -31,15 +31,17 @@ Future<ExampleNavigator> _pumpNavigator(
 }) async {
   final navigator =
       ExampleNavigator(session: ExampleSessionContext(DemoSessions.signedIn))
-        ..install({
-          'app': [
+        ..install(
+          routes: [
             _route('/app', routes: [_route('one'), _route('two')]),
             MicroAppRouteGroup(
               builder: (context, child) => child,
               routes: [_route('/app/tabs/a'), _route('/app/tabs/b')],
             ),
           ],
-        }, initialLocation: initialLocation);
+          requiresAuthentication: (fullPath) => false,
+          initialLocation: initialLocation,
+        );
   await tester.pumpWidget(MaterialApp.router(routerConfig: navigator.router));
   await tester.pumpAndSettle();
   return navigator;

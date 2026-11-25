@@ -1,15 +1,13 @@
-// Reference implementation of the host sequence in contracts/micro-app.md,
-// steps 1–7. Dev-only: it knows nothing but MicroApp, so any micro app plugs
-// in without host code specific to it. Core's reusable host implementation
-// (the counterpart of AppShellContainer) follows the same steps.
+// Reference host for the host sequence in contracts/micro-app.md, steps 1–7.
+// Dev-only: it knows nothing but MicroApp, so any micro app plugs in without
+// host code specific to it. ModularAppContainer runs steps 1–5 and 7; this
+// host adds the fakes for the contexts and the router (step 6).
 import 'package:flutter/widgets.dart';
 import 'package:foundations/foundations.dart';
 
 import 'fakes.dart';
 import 'reference_inter_module_communication.dart';
-import 'reference_route_validation.dart';
 import 'reference_router.dart';
-import 'reference_startup_exception.dart';
 
 /// The contracts every micro app shares. Storage and navigation are not here:
 /// the host builds storage per micro app and owns the navigator.
@@ -34,11 +32,12 @@ final class ReferenceHostServices {
     InterModuleCommunication? communication,
     AppLogger? logger,
     ApiClient? apiClient,
+    CrashReporter? crashReporter,
   }) => ReferenceHostServices(
     communication: communication ?? ReferenceInterModuleCommunication(),
     apiClient: apiClient ?? RecordingApiClient(),
     analytics: const NoOpAnalytics(),
-    crashReporter: const NoOpCrashReporter(),
+    crashReporter: crashReporter ?? const NoOpCrashReporter(),
     logger: logger ?? const NoOpAppLogger(),
     featureFlags: InMemoryFeatureFlags(),
     session: session ?? FakeSessionContext(),
@@ -111,7 +110,8 @@ final class ReferenceNavigatorSlot implements AppNavigator {
       _target.popUntil(path);
 }
 
-/// Runs the host sequence over [microApps], in list order.
+/// Runs the host sequence over its micro apps, in list order, through a
+/// [ModularAppContainer].
 final class ReferenceHost {
   /// Creates a host.
   ///
@@ -119,17 +119,19 @@ final class ReferenceHost {
   /// every micro app's limited view of them. The router starts at
   /// [initialLocation] and sends unsigned users to [signInPath].
   ReferenceHost({
-    required this.microApps,
+    required List<MicroApp> microApps,
     required this.services,
     this.signInPath = '/auth/sign-in',
     this.initialLocation = '/home',
     Map<String, String>? storage,
     Map<String, String>? secureStorage,
-  }) : storage = storage ?? {},
+  }) : container = ModularAppContainer(microApps: microApps),
+       storage = storage ?? {},
        secureStorage = secureStorage ?? {};
 
-  /// The micro apps, in initialization order.
-  final List<MicroApp> microApps;
+  /// The container that starts the micro apps and gathers their
+  /// declarations.
+  final ModularAppContainer container;
 
   /// The shared contracts.
   final ReferenceHostServices services;
@@ -149,95 +151,29 @@ final class ReferenceHost {
   /// The navigator every context receives.
   final ReferenceNavigatorSlot navigator = ReferenceNavigatorSlot();
 
-  /// Each micro app's context, by id. Filled in step 2.
-  final Map<String, MicroAppContext> contexts = {};
-
-  /// Every validated route. Filled in step 4.
-  final List<ReferenceRouteEntry> routes = [];
-
-  /// Every localization delegate. Filled in step 4.
-  final List<LocalizationsDelegate<Object?>> localizationsDelegates = [];
+  /// Every localization delegate, after [start].
+  List<LocalizationsDelegate<Object?>> get localizationsDelegates =>
+      container.localizationsDelegates;
 
   /// The router. Built in step 6.
   ReferenceRouter? router;
 
-  final List<MicroApp> _initialized = [];
-
   /// Runs steps 1–6.
   ///
-  /// Throws a [ReferenceStartupException] for a duplicate id, stored key, or
-  /// route path, and lets a [DuplicateEndpointException] through.
+  /// Throws a [ModularAppStartupException] for a duplicate id, stored key,
+  /// or route path, and lets a [DuplicateEndpointException] through.
   Future<void> start() async {
-    // 1. Read ids and stored keys; duplicates stop startup.
-    final ids = <String>{};
-    final keyOwners = <String, String>{};
-    for (final microApp in microApps) {
-      if (!ids.add(microApp.id)) {
-        throw ReferenceStartupException(
-          'Duplicate micro app id "${microApp.id}".',
-        );
-      }
-      for (final key in microApp.storedKeys) {
-        final owner = keyOwners[key];
-        if (owner != null) {
-          throw ReferenceStartupException(
-            'Stored key "$key" is declared by both "$owner" and '
-            '"${microApp.id}".',
-          );
-        }
-        keyOwners[key] = microApp.id;
-      }
-    }
-
-    // 2. One context per micro app, with storage limited to its keys.
-    for (final microApp in microApps) {
-      contexts[microApp.id] = MicroAppContext(
-        communication: services.communication,
-        apiClient: services.apiClient,
-        analytics: services.analytics,
-        crashReporter: services.crashReporter,
-        logger: services.logger,
-        featureFlags: services.featureFlags,
-        keyValueStore: InMemoryKeyValueStore(
-          declaredKeys: microApp.storedKeys,
-          entries: storage,
-        ),
-        secureKeyValueStore: InMemorySecureKeyValueStore(
-          declaredKeys: microApp.storedKeys,
-          entries: secureStorage,
-        ),
-        navigator: navigator,
-        session: services.session,
-        devicePermissions: services.devicePermissions,
-        appInfo: services.appInfo,
-      );
-    }
-
-    // 3. Initialize, in order.
-    for (final microApp in microApps) {
-      await microApp.initialize(contexts[microApp.id]!);
-      _initialized.add(microApp);
-    }
-
-    // 4. Collect declarations; check full paths.
-    final routesByMicroApp = {
-      for (final microApp in microApps) microApp.id: microApp.routes,
-    };
-    routes.addAll(ReferenceRouteValidation.validate(routesByMicroApp));
-    for (final microApp in microApps) {
-      localizationsDelegates.addAll(microApp.localizationsDelegates);
-    }
-
-    // 5. Register every provider at once; a duplicate URL throws.
-    services.communication.registerProviders(
-      data: [for (final microApp in microApps) ...microApp.dataEndpoints],
-      widgets: [for (final microApp in microApps) ...microApp.widgetEndpoints],
+    // Steps 1–5: the container.
+    await container.bootstrap(
+      communication: services.communication,
+      contextFor: _contextFor,
     );
 
     // 6. Build the router and point the shared navigator at it. A real host
     // then wraps MaterialApp.router in the root StateScope and runs.
     final built = ReferenceRouter(
-      routes: [for (final list in routesByMicroApp.values) ...list],
+      routes: container.routes,
+      requiresAuthentication: container.requiresAuthentication,
       session: services.session,
       signInPath: signInPath,
       initialLocation: initialLocation,
@@ -246,26 +182,13 @@ final class ReferenceHost {
     navigator.target = built;
   }
 
-  /// Runs step 7: disposes the initialized micro apps in reverse order.
+  /// Runs step 7: disposes the initialized micro apps in reverse order, then
+  /// the router.
   ///
   /// A failure is logged as an error and returned, and the remaining micro
   /// apps are still disposed. Calling it again does nothing.
   Future<List<(String, Object)>> dispose() async {
-    final failures = <(String, Object)>[];
-    for (final microApp in _initialized.reversed) {
-      try {
-        await microApp.dispose();
-      } on Object catch (error, stackTrace) {
-        failures.add((microApp.id, error));
-        services.logger.error(
-          'Micro app failed to dispose',
-          error: error,
-          stackTrace: stackTrace,
-          context: {'microAppId': microApp.id},
-        );
-      }
-    }
-    _initialized.clear();
+    final failures = await container.dispose();
     // Teardown may run twice (for example a test and its tearDown).
     final built = router;
     router = null;
@@ -273,4 +196,26 @@ final class ReferenceHost {
     await built?.dispose();
     return failures;
   }
+
+  // Step 2: one context per micro app, with storage limited to its keys.
+  MicroAppContext _contextFor(MicroApp microApp) => MicroAppContext(
+    communication: services.communication,
+    apiClient: services.apiClient,
+    analytics: services.analytics,
+    crashReporter: services.crashReporter,
+    logger: services.logger,
+    featureFlags: services.featureFlags,
+    keyValueStore: InMemoryKeyValueStore(
+      declaredKeys: microApp.storedKeys,
+      entries: storage,
+    ),
+    secureKeyValueStore: InMemorySecureKeyValueStore(
+      declaredKeys: microApp.storedKeys,
+      entries: secureStorage,
+    ),
+    navigator: navigator,
+    session: services.session,
+    devicePermissions: services.devicePermissions,
+    appInfo: services.appInfo,
+  );
 }

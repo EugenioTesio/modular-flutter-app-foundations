@@ -8,19 +8,19 @@ import 'example_services.dart';
 /// The example's host: it integrates any list of micro apps the same way
 /// Core does, through [MicroApp] and [MicroAppContext] only.
 ///
-/// [start] runs the host sequence:
+/// [start] runs the host sequence through a [ModularAppContainer], which:
 /// 1. Checks that ids and declared stored keys are unique.
-/// 2. Builds one [MicroAppContext] per micro app. The shared services are the
-///    same instances for everyone; the stores are limited to each micro
-///    app's own keys.
+/// 2. Builds one [MicroAppContext] per micro app. The
+///    shared services are the same instances for everyone; the stores are
+///    limited to each micro app's own keys.
 /// 3. Initializes the micro apps, in list order.
-/// 4. Checks and installs every declared route in the navigator. A broken
-///    or duplicate path stops startup.
+/// 4. Checks every declared route, keeping the trees as declared. A broken
+///    or duplicate path, or one that takes the sign-in path, stops startup.
 /// 5. Registers every declared endpoint provider in one step.
 ///
-/// The navigator sends a signed-out user to sign-in for routes that require
-/// it. [dispose] disposes the micro apps in reverse order, and keeps going
-/// when one fails.
+/// The host then installs the routes in the navigator, which sends a
+/// signed-out user to sign-in for routes that require it. [dispose]
+/// disposes the micro apps in reverse order, and keeps going when one fails.
 final class ExampleHost {
   /// Creates a host for [microApps].
   ///
@@ -28,15 +28,17 @@ final class ExampleHost {
   /// [apiResponses] are the canned backend answers; [initialLocation] is
   /// the location the router opens first, and defaults to `/`.
   ExampleHost({
-    required this.microApps,
+    required List<MicroApp> microApps,
     required this.session,
     Map<String, Object?> apiResponses = const {},
     this.initialLocation = '/',
-  }) : apiClient = ExampleApiClient(responses: apiResponses),
+  }) : container = ModularAppContainer(microApps: microApps),
+       apiClient = ExampleApiClient(responses: apiResponses),
        navigator = ExampleNavigator(session: session);
 
-  /// The micro apps, in initialization order.
-  final List<MicroApp> microApps;
+  /// The container that starts the micro apps and gathers their
+  /// declarations.
+  final ModularAppContainer container;
 
   /// The location the router opens first.
   final String initialLocation;
@@ -59,31 +61,24 @@ final class ExampleHost {
   final _secureStorage = <String, String>{};
 
   /// Every micro app's localization delegates, after [start].
-  List<LocalizationsDelegate<Object?>> get localizationsDelegates => [
-    for (final app in microApps) ...app.localizationsDelegates,
-  ];
+  List<LocalizationsDelegate<Object?>> get localizationsDelegates =>
+      container.localizationsDelegates;
 
-  /// Runs the host sequence. Throws a [StateError] naming the culprits when
-  /// two micro apps share an id or a stored key, or when a route path breaks
-  /// a rule, and lets a [DuplicateEndpointException] propagate.
+  /// Runs the host sequence.
+  ///
+  /// Throws a [ModularAppStartupException] naming the culprits when two
+  /// micro apps share an id or a stored key, or when a route path breaks a
+  /// rule, and lets a [DuplicateEndpointException] propagate.
   Future<void> start() async {
-    _checkUnique('id', {
-      for (final app in microApps) app: {app.id},
-    });
-    _checkUnique('stored key', {
-      for (final app in microApps) app: app.storedKeys,
-    });
-
-    for (final app in microApps) {
-      await app.initialize(_contextFor(app));
-    }
-
-    navigator.install({
-      for (final app in microApps) app.id: app.routes,
-    }, initialLocation: initialLocation);
-    communication.registerProviders(
-      data: [for (final app in microApps) ...app.dataEndpoints],
-      widgets: [for (final app in microApps) ...app.widgetEndpoints],
+    await container.bootstrap(
+      communication: communication,
+      contextFor: _contextFor,
+      hostPaths: const {ExampleNavigator.signInPath},
+    );
+    navigator.install(
+      routes: container.routes,
+      requiresAuthentication: container.requiresAuthentication,
+      initialLocation: initialLocation,
     );
   }
 
@@ -92,20 +87,7 @@ final class ExampleHost {
   /// A failure is logged and returned with the micro app's id, and the
   /// remaining micro apps are still disposed.
   Future<List<(String, Object)>> dispose() async {
-    final failures = <(String, Object)>[];
-    for (final app in microApps.reversed) {
-      try {
-        await app.dispose();
-      } on Object catch (error, stackTrace) {
-        failures.add((app.id, error));
-        const ExampleAppLogger().error(
-          'Micro app failed to dispose',
-          error: error,
-          stackTrace: stackTrace,
-          context: {'microAppId': app.id},
-        );
-      }
-    }
+    final failures = await container.dispose();
     navigator.dispose();
     return failures;
   }
@@ -130,19 +112,4 @@ final class ExampleHost {
     devicePermissions: const ExampleDevicePermissions(),
     appInfo: const ExampleAppInfo(),
   );
-
-  static void _checkUnique(String what, Map<MicroApp, Set<String>> values) {
-    final owners = <String, List<String>>{};
-    values.forEach((app, keys) {
-      for (final key in keys) {
-        (owners[key] ??= []).add(app.id);
-      }
-    });
-    final clashes = owners.entries.where((entry) => entry.value.length > 1);
-    if (clashes.isNotEmpty) {
-      throw StateError(
-        'Duplicate $what: ${clashes.map((e) => '"${e.key}" in ${e.value}').join(', ')}',
-      );
-    }
-  }
 }

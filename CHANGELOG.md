@@ -41,9 +41,17 @@ Both are re-exported unchanged from `package:foundations/foundations.dart`.
 - **Micro app integration**: `MicroApp`, `MicroAppContext`, and the
   router-neutral route tree `MicroAppRoute` and `MicroAppRouteGroup`, with
   `AppNavigator` and `NavigationResult`.
+- **Modular app container**: `ModularAppContainer` and
+  `MicroAppContextFactory`. The container runs the host sequence: it checks
+  ids, stored keys, and route trees, builds one context per micro app,
+  initializes the micro apps, registers their endpoints, and disposes them in
+  reverse order. It hands the routes and localization delegates over as
+  declared, combined or by micro app, and offers `requiresAuthentication`
+  and `microAppIdOf` lookups by full path.
 - **Outcomes and exceptions**: `Result` (`Ok` and `Err`), `ApiException`,
-  `StorageException`, `NavigationException` (`RouteNotFoundException`), and
-  `DuplicateEndpointException`.
+  `StorageException`, `NavigationException` (`RouteNotFoundException`),
+  `DuplicateEndpointException`, and `ModularAppStartupException` (with
+  `ModularAppStartupExceptionType`).
 - **Testing support**: `package:foundations/testing.dart` with the
   inter-module conformance check `InterModuleConformance` (cases C01–C17),
   for Core and for standalone stubs.

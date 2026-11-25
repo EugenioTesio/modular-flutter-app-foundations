@@ -14,10 +14,11 @@
 ///   [DevicePermissions].
 /// * **Micro app integration**: [MicroApp], [MicroAppContext], and the
 ///   router-neutral route tree ([MicroAppRoute] and [MicroAppRouteGroup]),
-///   so any host integrates any micro app the same way.
+///   so any host integrates any micro app the same way, and
+///   [ModularAppContainer], which runs that integration for a host.
 /// * **Outcomes and exceptions**: [Result] with [Ok] and [Err], and the
 ///   exceptions [ApiException], [StorageException], [NavigationException],
-///   and [DuplicateEndpointException].
+///   [DuplicateEndpointException], and [ModularAppStartupException].
 /// * **The unified design system**, re-exported unchanged: tokens such as
 ///   [DsSpacing] and [DsColors], the themes [DsTheme.light] and
 ///   [DsTheme.dark], and components such as [DsPageScaffold], [DsButton], and
@@ -73,6 +74,7 @@
 /// @docImport 'src/common/result.dart';
 /// @docImport 'src/exceptions/api_exception.dart';
 /// @docImport 'src/exceptions/duplicate_endpoint_exception.dart';
+/// @docImport 'src/exceptions/modular_app_startup_exception.dart';
 /// @docImport 'src/exceptions/navigation_exception.dart';
 /// @docImport 'src/exceptions/storage_exception.dart';
 /// @docImport 'src/inter_module/endpoint_provider.dart';
@@ -83,6 +85,7 @@
 /// @docImport 'src/inter_module/inter_module_validator.dart';
 /// @docImport 'src/micro_app/micro_app.dart';
 /// @docImport 'src/micro_app/micro_app_context.dart';
+/// @docImport 'src/micro_app/modular_app_container.dart';
 /// @docImport 'src/routing/app_navigator.dart';
 /// @docImport 'src/routing/micro_app_route.dart';
 library;
@@ -103,6 +106,7 @@ export 'src/capabilities/session_context.dart';
 export 'src/common/result.dart';
 export 'src/exceptions/api_exception.dart';
 export 'src/exceptions/duplicate_endpoint_exception.dart';
+export 'src/exceptions/modular_app_startup_exception.dart';
 export 'src/exceptions/navigation_exception.dart';
 export 'src/exceptions/storage_exception.dart';
 export 'src/inter_module/endpoint_provider.dart';
@@ -113,5 +117,6 @@ export 'src/inter_module/inter_module_status.dart';
 export 'src/inter_module/inter_module_validator.dart';
 export 'src/micro_app/micro_app.dart';
 export 'src/micro_app/micro_app_context.dart';
+export 'src/micro_app/modular_app_container.dart';
 export 'src/routing/app_navigator.dart';
 export 'src/routing/micro_app_route.dart';

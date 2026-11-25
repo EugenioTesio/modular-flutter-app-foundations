@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 /// Each [MicroAppRoute] becomes a [GoRoute] and each [MicroAppRouteGroup] a
 /// [ShellRoute], so a group's layout stays in place while the user moves
 /// between its routes. It maps only; the checks run before it, in
-/// `ExampleRouteHelper`.
+/// [ModularAppContainer.bootstrap].
 abstract final class ExampleGoRoutes {
   /// Maps [nodes] and their children to go_router routes.
   ///

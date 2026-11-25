@@ -8,27 +8,24 @@ import 'package:flutter/material.dart';
 import 'package:foundations/foundations.dart';
 import 'package:go_router/go_router.dart';
 
-import 'reference_route_validation.dart';
-
 /// Builds a [GoRouter] from route trees and navigates through it.
 final class ReferenceRouter implements AppNavigator {
   /// Creates a router over [routes] (every micro app's top-level nodes),
   /// starting at [initialLocation].
   ///
-  /// Routes that require sign-in redirect to `signInPath` while `session` is
-  /// [Unauthenticated], and are re-checked whenever the session changes.
-  /// A deep link that matches no route shows [notFoundBuilder].
+  /// A route for which `requiresAuthentication` returns `true` (given its
+  /// full path pattern, as [ModularAppContainer.requiresAuthentication]
+  /// does) redirects to `signInPath` while `session` is [Unauthenticated],
+  /// and is re-checked whenever the session changes. A deep link that
+  /// matches no route shows [notFoundBuilder].
   ReferenceRouter({
     required List<MicroAppRouteNode> routes,
+    required this._requiresAuthentication,
     required this._session,
     required this._signInPath,
     required String initialLocation,
     Widget Function(BuildContext context, String location)? notFoundBuilder,
   }) {
-    _requiresAuth = {
-      for (final entry in ReferenceRouteValidation.flatten(routes))
-        entry.fullPath: entry.requiresAuthentication,
-    };
     _sessionChanges = _session.changes.listen((_) => router.refresh());
     router = GoRouter(
       initialLocation: initialLocation,
@@ -44,7 +41,7 @@ final class ReferenceRouter implements AppNavigator {
 
   final SessionContext _session;
   final String _signInPath;
-  late final Map<String, bool> _requiresAuth;
+  final bool? Function(String fullPath) _requiresAuthentication;
   late final StreamSubscription<SessionState> _sessionChanges;
 
   /// The location currently shown, after redirects.
@@ -94,7 +91,7 @@ final class ReferenceRouter implements AppNavigator {
   String? _redirect(BuildContext context, GoRouterState state) {
     final fullPath = state.fullPath;
     if (fullPath == null) return null;
-    final needsSignIn = _requiresAuth[fullPath] ?? false;
+    final needsSignIn = _requiresAuthentication(fullPath) ?? false;
     if (needsSignIn && _session.current is Unauthenticated) return _signInPath;
     return null;
   }
