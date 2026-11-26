@@ -517,14 +517,13 @@ final class FakeDevicePermissions implements DevicePermissions {
 abstract final class FakeMicroAppContexts {
   /// Returns a [MicroAppContextFactory] whose contexts share [communication]
   /// and one instance of every other fake, with stores limited to each micro
-  /// app's declared keys over the shared [storage].
+  /// app's declared keys over one shared, initially empty store.
   static MicroAppContextFactory factory({
     required InterModuleCommunication communication,
     AppLogger logger = const NoOpAppLogger(),
     CrashReporter crashReporter = const NoOpCrashReporter(),
-    Map<String, String>? storage,
   }) {
-    final entries = storage ?? {};
+    final entries = <String, String>{};
     final secureEntries = <String, String>{};
     final apiClient = RecordingApiClient();
     final featureFlags = InMemoryFeatureFlags();

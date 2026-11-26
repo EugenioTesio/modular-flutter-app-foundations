@@ -13,7 +13,7 @@ import 'transfers.dart';
 void main() => runApp(
   StateScope(
     adapter: const RiverpodStateAdapter(),
-    child: FoundationsExampleApp.create(),
+    child: const FoundationsExampleApp(),
   ),
 );
 
@@ -24,20 +24,8 @@ void main() => runApp(
 /// themes, and opens Home. The "Cards installed" switch restarts the host
 /// with or without Cards, like a build with or without that micro app.
 class FoundationsExampleApp extends StatefulWidget {
-  /// Creates the app.
-  ///
-  /// [cardsInstalled] sets whether the app starts with the Cards micro app.
-  /// [apiResponses] are the canned backend answers; they default to
-  /// [defaultApiResponses].
-  const FoundationsExampleApp({
-    super.key,
-    this.cardsInstalled = true,
-    this.apiResponses = defaultApiResponses,
-  });
-
-  /// Creates the app the way `main` does.
-  factory FoundationsExampleApp.create({bool cardsInstalled = true}) =>
-      FoundationsExampleApp(cardsInstalled: cardsInstalled);
+  /// Creates the app with Cards installed.
+  const FoundationsExampleApp({super.key});
 
   /// The backend answers the example serves.
   static const defaultApiResponses = <String, Object?>{
@@ -47,19 +35,13 @@ class FoundationsExampleApp extends StatefulWidget {
     },
   };
 
-  /// Whether the app starts with the Cards micro app installed.
-  final bool cardsInstalled;
-
-  /// The canned backend answers.
-  final Map<String, Object?> apiResponses;
-
   @override
   State<FoundationsExampleApp> createState() => _FoundationsExampleAppState();
 }
 
 class _FoundationsExampleAppState extends State<FoundationsExampleApp> {
   final _session = ExampleSessionContext(DemoSessions.signedIn);
-  late var _cardsInstalled = widget.cardsInstalled;
+  var _cardsInstalled = true;
   ExampleHost? _host;
 
   @override
@@ -74,7 +56,7 @@ class _FoundationsExampleAppState extends State<FoundationsExampleApp> {
     final previous = _host;
     final host = ExampleHost(
       session: _session,
-      apiResponses: widget.apiResponses,
+      apiResponses: FoundationsExampleApp.defaultApiResponses,
       initialLocation: '/home',
       microApps: [
         HomeMicroApp(),

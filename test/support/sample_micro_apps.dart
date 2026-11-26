@@ -94,12 +94,12 @@ class SampleMicroApp implements MicroApp {
 class SampleAccountsMicroApp extends SampleMicroApp {
   /// Creates the Accounts micro app.
   SampleAccountsMicroApp({
-    super.id = 'accounts',
     Set<String> extraStoredKeys = const {},
     super.journal,
     super.failOnDispose,
     List<MicroAppRouteNode> extraRoutes = const [],
   }) : super(
+         id: 'accounts',
          storedKeys: {'accounts.last_balance', ...extraStoredKeys},
          routes: (app) => [
            ...(app as SampleAccountsMicroApp)._accountsRoutes(),
@@ -250,7 +250,6 @@ class SampleTransfersMicroApp extends SampleMicroApp {
   SampleTransfersMicroApp({
     Set<String> extraStoredKeys = const {},
     super.journal,
-    super.failOnDispose,
   }) : super(
          id: 'transfers',
          storedKeys: {'transfers.draft', ...extraStoredKeys},

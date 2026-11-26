@@ -190,7 +190,7 @@ void main() {
     testWidgets('When "Cards installed" is switched off and on, '
         'Then Home swaps between the fallback and the banner', (tester) async {
       // Given
-      await tester.pumpWidget(FoundationsExampleApp.create());
+      await tester.pumpWidget(const FoundationsExampleApp());
       await tester.pumpAndSettle();
       expect(find.text('Card •••• 4821'), findsOneWidget);
 

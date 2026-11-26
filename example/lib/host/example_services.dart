@@ -12,16 +12,13 @@ import 'package:foundations/foundations.dart';
 final class ExampleApiClient implements ApiClient {
   /// Creates a client that answers each path in [responses]; any other path
   /// fails with a 404 client error.
-  ExampleApiClient({
-    this.responses = const {},
-    this.delay = const Duration(milliseconds: 300),
-  });
+  ExampleApiClient({this.responses = const {}});
 
   /// Canned response bodies by path.
   final Map<String, Object?> responses;
 
   /// How long each request takes.
-  final Duration delay;
+  static const delay = Duration(milliseconds: 300);
 
   @override
   Future<Result<ApiResponse, ApiException>> send(ApiRequest request) async {

@@ -25,19 +25,16 @@ final class ReferenceHostServices {
     required this.appInfo,
   });
 
-  /// Creates services backed by the in-memory fakes, with a reference
-  /// communication implementation unless [communication] is given.
+  /// Creates services backed by the in-memory fakes and a reference
+  /// communication implementation.
   factory ReferenceHostServices.fakes({
     SessionContext? session,
-    InterModuleCommunication? communication,
     AppLogger? logger,
-    ApiClient? apiClient,
-    CrashReporter? crashReporter,
   }) => ReferenceHostServices(
-    communication: communication ?? ReferenceInterModuleCommunication(),
-    apiClient: apiClient ?? RecordingApiClient(),
+    communication: ReferenceInterModuleCommunication(),
+    apiClient: RecordingApiClient(),
     analytics: const NoOpAnalytics(),
-    crashReporter: crashReporter ?? const NoOpCrashReporter(),
+    crashReporter: const NoOpCrashReporter(),
     logger: logger ?? const NoOpAppLogger(),
     featureFlags: InMemoryFeatureFlags(),
     session: session ?? FakeSessionContext(),
@@ -116,18 +113,16 @@ final class ReferenceHost {
   /// Creates a host.
   ///
   /// [storage] and [secureStorage] model the device's two stores, shared by
-  /// every micro app's limited view of them. The router starts at
-  /// [initialLocation] and sends unsigned users to [signInPath].
+  /// every micro app's limited view of them; [secureStorage] starts empty.
+  /// The router starts at [initialLocation] and sends unsigned users to
+  /// [signInPath].
   ReferenceHost({
     required List<MicroApp> microApps,
     required this.services,
-    this.signInPath = '/auth/sign-in',
     this.initialLocation = '/home',
     Map<String, String>? storage,
-    Map<String, String>? secureStorage,
   }) : container = ModularAppContainer(microApps: microApps),
-       storage = storage ?? {},
-       secureStorage = secureStorage ?? {};
+       storage = storage ?? {};
 
   /// The container that starts the micro apps and gathers their
   /// declarations.
@@ -137,7 +132,7 @@ final class ReferenceHost {
   final ReferenceHostServices services;
 
   /// Where routes that require sign-in redirect.
-  final String signInPath;
+  static const signInPath = '/auth/sign-in';
 
   /// The router's first location.
   final String initialLocation;
@@ -146,7 +141,7 @@ final class ReferenceHost {
   final Map<String, String> storage;
 
   /// The device's secure storage.
-  final Map<String, String> secureStorage;
+  final Map<String, String> secureStorage = {};
 
   /// The navigator every context receives.
   final ReferenceNavigatorSlot navigator = ReferenceNavigatorSlot();

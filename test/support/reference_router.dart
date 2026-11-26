@@ -17,14 +17,13 @@ final class ReferenceRouter implements AppNavigator {
   /// full path pattern, as [ModularAppContainer.requiresAuthentication]
   /// does) redirects to `signInPath` while `session` is [Unauthenticated],
   /// and is re-checked whenever the session changes. A deep link that
-  /// matches no route shows [notFoundBuilder].
+  /// matches no route shows a plain not-found screen.
   ReferenceRouter({
     required List<MicroAppRouteNode> routes,
     required this._requiresAuthentication,
     required this._session,
     required this._signInPath,
     required String initialLocation,
-    Widget Function(BuildContext context, String location)? notFoundBuilder,
   }) {
     _sessionChanges = _session.changes.listen((_) => router.refresh());
     router = GoRouter(
@@ -32,7 +31,7 @@ final class ReferenceRouter implements AppNavigator {
       routes: [for (final node in routes) _toRouteBase(node)],
       redirect: _redirect,
       errorBuilder: (context, state) =>
-          (notFoundBuilder ?? _defaultNotFound)(context, state.uri.toString()),
+          _defaultNotFound(context, state.uri.toString()),
     );
   }
 

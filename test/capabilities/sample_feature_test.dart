@@ -189,7 +189,6 @@ final class Harness {
     Map<DevicePermission, DevicePermissionStatus> answers = const {},
     Map<DevicePermission, DevicePermissionServiceStatus> services = const {},
     Result<ApiResponse, ApiException> Function(ApiRequest)? respond,
-    Map<String, Object> flags = const {},
     this.analytics,
     this.crashReporter,
     this.logger,
@@ -200,7 +199,7 @@ final class Harness {
          services: services,
        ),
        apiClient = RecordingApiClient(respond: respond ?? _balance),
-       flags = InMemoryFeatureFlags(flags);
+       flags = InMemoryFeatureFlags();
 
   final FakeSessionContext session;
   final FakeDevicePermissions permissions;

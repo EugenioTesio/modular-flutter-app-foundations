@@ -106,7 +106,7 @@ void main() {
     testWidgets('When the user taps Transfers\' shortcut on Home, '
         'Then Transfers shows one outcome row per scenario', (tester) async {
       // Given
-      await tester.pumpWidget(FoundationsExampleApp.create());
+      await tester.pumpWidget(const FoundationsExampleApp());
       await tester.pumpAndSettle();
 
       // When
@@ -132,7 +132,7 @@ void main() {
       await tester.pumpWidget(
         StateScope(
           adapter: const RiverpodStateAdapter(),
-          child: FoundationsExampleApp.create(),
+          child: const FoundationsExampleApp(),
         ),
       );
       await tester.pumpAndSettle();
