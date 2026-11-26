@@ -1,0 +1,32 @@
+name: foundations
+description: >-
+  Shared contracts for the modular Flutter app, plus the unified design system
+  and state-management contract that every micro app uses.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.0"
+
+# Runtime dependencies are limited to the Flutter SDK, the design system, and
+# switchable_state (FR-003). Adapters, state libraries, and router packages are
+# development-only (FR-043, FR-053).
+dependencies:
+  flutter:
+    sdk: flutter
+  # Interim: the design system lives in this repository until it moves to its
+  # own one. Git consumers resolve it from the same commit (research R3).
+  design_system:
+    path: packages/design_system
+  # Pinned exactly so every host and micro app resolves one version (FR-042).
+  switchable_state: 0.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  go_router: ^18.1.4
+  switchable_state_bloc: ^0.1.0
+  switchable_state_riverpod: ^0.1.0
+  yaml: ^3.1.4
