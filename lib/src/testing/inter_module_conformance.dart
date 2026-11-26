@@ -7,50 +7,109 @@ import '../inter_module/inter_module_endpoint.dart';
 import '../inter_module/inter_module_response.dart';
 import '../inter_module/inter_module_status.dart';
 
-/// The outcome of running one [ConformanceCase].
+/// Value that reports whether an implementation passed one
+/// [ConformanceCase].
+///
+/// Use this to turn a case into a test assertion: expect [passed] to be
+/// `true`, and show [message] as the reason when it isn't.
+///
+/// This is **not** a test-framework result: it depends on no test package,
+/// so each test suite decides how to report it.
+///
+/// Built-in: [ConformanceCase.run] returns one, and turns an exception that
+/// escapes the implementation into a failed result instead of throwing it.
+///
+/// Usage from a host's test suite:
+/// ```dart
+/// final result = await InterModuleConformance.cases.first.run(
+///   CoreInterModuleCommunication.new,
+/// );
+/// expect(result.passed, isTrue, reason: result.message);
+/// ```
 @immutable
 final class ConformanceResult {
-  /// The case passed.
+  /// Creates a result for a case that passed, with no [message].
   const ConformanceResult.pass() : passed = true, message = null;
 
-  /// The case failed, for the reason in [message].
+  /// Creates a result for a case that failed.
+  ///
+  /// Parameters:
+  /// * [message] - Why the case failed, naming every broken expectation.
   const ConformanceResult.fail(String this.message) : passed = false;
 
   /// Whether the implementation behaved as the contract requires.
   final bool passed;
 
-  /// Why the case failed; null when it passed.
+  /// Optional reason the case failed; `null` when it passed.
   final String? message;
 }
 
-/// The body of a [ConformanceCase]. It calls `create` to get a fresh, empty
-/// implementation, exercises it, and reports the result.
+/// Function that runs the body of a [ConformanceCase].
+///
+/// Use this only to read how cases are built: each one calls `create` for a
+/// fresh, empty implementation, exercises it, and returns a
+/// [ConformanceResult].
+///
+/// This is **not** something a host writes: [InterModuleConformance.cases]
+/// holds every case, and hosts call [ConformanceCase.run].
 typedef ConformanceRun = Future<ConformanceResult> Function(
   InterModuleCommunication Function() create,
 );
 
-/// One verifiable behavior of the inter-module communication contract.
+/// Value that describes one behavior of the [InterModuleCommunication]
+/// contract and checks it.
+///
+/// Use this to run one check against an implementation, usually by looping
+/// over [InterModuleConformance.cases] and creating one test per case.
+///
+/// This is **not** a test: it registers nothing with a test framework, and
+/// it never throws. Each [run] gets a fresh implementation, so cases don't
+/// affect each other.
+///
+/// Built-in: Foundations defines every case in
+/// [InterModuleConformance.cases]; hosts don't create their own.
+///
+/// Usage from a host's test suite:
+/// ```dart
+/// final conformanceCase = InterModuleConformance.cases.first;
+/// test('${conformanceCase.id} ${conformanceCase.description}', () async {
+///   final result = await conformanceCase.run(
+///     CoreInterModuleCommunication.new,
+///   );
+///   expect(result.passed, isTrue, reason: result.message);
+/// });
+/// ```
 @immutable
 final class ConformanceCase {
-  /// Creates a case.
+  /// Creates a conformance case.
+  ///
+  /// Parameters:
+  /// * [id] - The case identifier, such as `C01`.
+  /// * [description] - What the case checks, in plain words.
+  /// * `body` - The [ConformanceRun] that performs the check.
   const ConformanceCase({
     required this.id,
     required this.description,
     required this._body,
   });
 
-  /// The case identifier, such as `C01`.
+  /// Identifier of the case, such as `C01`, stable across releases.
   final String id;
 
-  /// What the case checks, in plain words.
+  /// Plain description of the behavior the case checks.
   final String description;
 
   final ConformanceRun _body;
 
-  /// Runs the case against a fresh implementation from [create].
+  /// Runs the case against a fresh implementation.
   ///
-  /// An exception escaping the implementation is reported as a failure, not
-  /// thrown.
+  /// Parameters:
+  /// * [create] - Builds a new, empty [InterModuleCommunication], such as
+  ///   its constructor tear-off. A case may call it more than once.
+  ///
+  /// Returns a [ConformanceResult]. An exception that escapes the
+  /// implementation is reported as a failed result naming the exception; it
+  /// is never thrown.
   Future<ConformanceResult> run(
     InterModuleCommunication Function() create,
   ) async {
@@ -62,21 +121,45 @@ final class ConformanceCase {
   }
 }
 
-/// The conformance check for implementations of [InterModuleCommunication].
+/// Contract check that every [InterModuleCommunication] implementation must
+/// pass.
 ///
-/// Core and standalone stubs run every case in their own test suites, for
-/// example:
+/// Use this in the test suite of Core, a standalone stub, or any other
+/// implementation, so they all route requests, validate required
+/// parameters, report errors, and refuse duplicate addresses the same way.
 ///
+/// This is **not** a test of Foundations itself, and it is not exported from
+/// `package:foundations/foundations.dart`: import
+/// `package:foundations/testing.dart` from test code only.
+///
+/// Built-in: the cases cover data requests (success, missing or null
+/// required parameters, extra parameters, unregistered addresses, provider
+/// failures passed through, handlers that throw or fail), UI requests (the
+/// same rules, answered synchronously), duplicate registration throwing a
+/// [DuplicateEndpointException], separate data and UI registries, and
+/// `isRegistered`.
+///
+/// Rules:
+/// * An implementation conforms only when every case passes.
+/// * Run every case, not a chosen few: a new case in a later release is a
+///   new requirement of the contract.
+/// * The cases check that an implementation never exposes a handler's
+///   exception details in a response; a failed [ConformanceResult] may name
+///   the exception, since it only reaches test output.
+///
+/// Usage from a host's test suite:
 /// ```dart
-/// for (final c in InterModuleConformance.cases) {
-///   test('${c.id} ${c.description}', () async {
-///     final result = await c.run(CoreInterModuleCommunication.new);
+/// for (final conformanceCase in InterModuleConformance.cases) {
+///   test('${conformanceCase.id} ${conformanceCase.description}', () async {
+///     final result = await conformanceCase.run(
+///       CoreInterModuleCommunication.new,
+///     );
 ///     expect(result.passed, isTrue, reason: result.message);
 ///   });
 /// }
 /// ```
 abstract final class InterModuleConformance {
-  /// Every case, in identifier order.
+  /// Every conformance case, in identifier order.
   static const List<ConformanceCase> cases = [
     ConformanceCase(
       id: 'C01',
