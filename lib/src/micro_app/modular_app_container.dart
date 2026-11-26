@@ -17,14 +17,16 @@ import 'modular_app_route_checks.dart';
 /// Function that builds the [MicroAppContext] one micro app receives.
 ///
 /// Use this to give [ModularAppContainer.bootstrap] the host's contracts:
-/// the shared services are the same instances for every micro app, and the
-/// stores are limited to the micro app's own [MicroApp.storedKeys].
+/// most services are the same instances for every micro app, while the crash
+/// reporter adds the micro app's [MicroApp.id] to its reports and the stores
+/// are limited to the micro app's own [MicroApp.storedKeys].
 ///
 /// Usage from a host:
 /// ```dart
 /// MicroAppContext contextFor(MicroApp microApp) => MicroAppContext(
 ///   communication: communication,
 ///   apiClient: apiClient,
+///   crashReporter: ScopedCrashReporter(microApp.id, crashVendor),
 ///   // ... the other shared services ...
 ///   keyValueStore: ScopedKeyValueStore(microApp.storedKeys, preferences),
 ///   secureKeyValueStore: ScopedSecureStore(microApp.storedKeys, keychain),
@@ -67,8 +69,10 @@ typedef MicroAppContextFactory = MicroAppContext Function(MicroApp microApp);
 ///   apps.
 /// * Route trees and delegates are handed over as declared: no tree is
 ///   flattened, merged, or re-rooted.
-/// * Logs and crash reports carry the micro app id and timings only, never
-///   payloads, credentials, or personal data.
+/// * To the logs and crash reports it writes, the container adds the micro app
+///   id and timings only, never payloads, credentials, or personal data. An
+///   error and its stack trace are forwarded as thrown, so the host's
+///   implementations strip any input the error quotes.
 ///
 /// Usage from a host:
 /// ```dart

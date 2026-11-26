@@ -233,7 +233,8 @@ final container = ModularAppContainer(
 );
 await container.bootstrap(
   communication: communication,
-  // Shared services, plus stores limited to the micro app's storedKeys.
+  // Shared services, a crash reporter that adds the micro app's id, and
+  // stores limited to its storedKeys.
   contextFor: (microApp) => MicroAppContext(/* … */),
 );
 

@@ -27,9 +27,10 @@ import '../routing/app_navigator.dart';
 /// its own context, and nothing else can reach it.
 ///
 /// Built-in: Core builds one context per micro app. Most fields are instances
-/// shared by every micro app, but [keyValueStore] and [secureKeyValueStore]
-/// are limited to the keys that micro app declares in [MicroApp.storedKeys],
-/// so micro apps can't overwrite each other's values.
+/// shared by every micro app, but [crashReporter] adds that micro app's
+/// [MicroApp.id] to its reports, and [keyValueStore] and
+/// [secureKeyValueStore] are limited to the keys it declares in
+/// [MicroApp.storedKeys], so micro apps can't overwrite each other's values.
 ///
 /// Rules:
 /// * Every field is required, so a host that forgets a contract fails to

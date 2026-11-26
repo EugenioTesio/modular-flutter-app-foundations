@@ -110,11 +110,15 @@ final class AccountsOverview {
       logger.info('overview needs sign-in');
       return const OverviewSignedOut();
     }
-    if (await secureStore.read(_deviceIdKey) case Ok(:final value?)) {
-      await crashReporter.setUserIdentifier(value);
-    }
+    final deviceId = switch (await secureStore.read(_deviceIdKey)) {
+      Ok(:final value) => value,
+      Err() => null,
+    };
 
-    switch (await apiClient.get('/accounts/summary')) {
+    switch (await apiClient.get(
+      '/accounts/summary',
+      headers: {'x-device-id': ?deviceId},
+    )) {
       case Ok(:final value):
         final body = value.body! as Map<String, Object?>;
         final balance = body['balance']! as num;
@@ -269,8 +273,12 @@ void main() {
       // Then
       expect(outcome, const OverviewShown(balance: 120.5, showSavings: false));
       expect(harness.apiClient.requests.single.path, '/accounts/summary');
+      expect(harness.apiClient.requests.single.headers, {
+        'x-device-id': 'device-7f3a',
+      });
       expect(harness.store.entries, {_lastBalanceKey: '120.5'});
-      expect(harness.recordingCrashReporter.userIdentifier, 'device-7f3a');
+      // Only Core sets the crash reporter's user identifier.
+      expect(harness.recordingCrashReporter.userIdentifier, isNull);
       expect(
         harness.recordingAnalytics.screenViews.single.$1,
         'accounts.overview',
