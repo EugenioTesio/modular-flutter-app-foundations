@@ -2,7 +2,7 @@ name: foundations
 description: >-
   Shared contracts for the modular Flutter app, plus the unified design system
   and state-management contract that every micro app uses.
-version: 0.1.0
+version: 0.1.1
 publish_to: none
 
 environment:
@@ -15,10 +15,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Interim: the design system lives in this repository until it moves to its
-  # own one. Git consumers resolve it from the same commit (research R3).
+  # The design system lives in its own repository. One release is pinned by its
+  # git tag, so every host and micro app resolves the same version.
   design_system:
-    path: packages/design_system
+    git:
+      url: https://github.com/EugenioTesio/modular-flutter-app-design-system.git
+      ref: v0.1.1
   # Pinned exactly so every host and micro app resolves one version (FR-042).
   switchable_state: 0.1.0
 

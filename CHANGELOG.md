@@ -8,6 +8,46 @@ Each entry has the same sections, even when one is empty, and states the
 versions of the two packages it delivers. Adopting a breaking change in either
 of them makes the Foundations release breaking too.
 
+## 0.1.1
+
+Delivers design_system 0.1.1 from its own repository.
+
+**Delivers**
+
+- `design_system` **0.1.1**, from its own repository,
+  [`modular-flutter-app-design-system`](https://github.com/EugenioTesio/modular-flutter-app-design-system),
+  pinned by the git tag `v0.1.1`. See its
+  [changelog](https://github.com/EugenioTesio/modular-flutter-app-design-system/blob/v0.1.1/CHANGELOG.md).
+  The package, its public library, and its behavior are unchanged.
+- `switchable_state` **0.1.0**, pinned exactly.
+
+Both are re-exported unchanged from `package:foundations/foundations.dart`.
+
+### Added
+
+None.
+
+### Changed
+
+- `design_system` now comes from its own repository through a git tag,
+  instead of from `packages/design_system` in this repository. Micro apps
+  change no code.
+- `tool/git_consumer_smoke.sh` checks that a git consumer resolves exactly
+  one `design_system`, from its repository at the pinned tag.
+- The README explains how to develop against a local Design System checkout.
+
+### Deprecated
+
+None.
+
+### Removed
+
+- The interim folder `packages/design_system/`.
+
+### Breaking
+
+None.
+
 ## 0.1.0
 
 First release.

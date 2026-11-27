@@ -68,10 +68,12 @@ packages:
   design_system:
     dependency: "direct main"
     description:
-      path: "packages/design_system"
-      relative: true
-    source: path
-    version: "0.1.0"
+      path: "."
+      ref: "v0.1.1"
+      resolved-ref: dbbb4d4d675821549318afe8dfdb108b50631f4a
+      url: "https://github.com/EugenioTesio/modular-flutter-app-design-system.git"
+    source: git
+    version: "0.1.1"
   fake_async:
     dependency: transitive
     description:

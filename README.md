@@ -12,7 +12,9 @@ test can replace any contract with a hand-written fake.
 
 Foundations also delivers two first-party packages, re-exported unchanged:
 
-- `design_system`: tokens, themes, and accessible components.
+- `design_system`: tokens, themes, and accessible components, from its own
+  repository,
+  [`modular-flutter-app-design-system`](https://github.com/EugenioTesio/modular-flutter-app-design-system).
 - `switchable_state`: the state-management contract. The host chooses the
   adapter.
 
@@ -316,35 +318,34 @@ surface stays small. A change is rejected when it adds any of the following:
 
 The pull request template walks through these checks.
 
-## Moving the Design System to its own repository
+## Developing against a local Design System checkout
 
-`design_system` lives in [`packages/design_system`](packages/design_system)
-until it moves to `modular-flutter-app-design-system`. Moving it changes no
-consumer code:
+`design_system` lives in its own repository,
+[`modular-flutter-app-design-system`](https://github.com/EugenioTesio/modular-flutter-app-design-system).
+`pubspec.yaml` pins one release through its git tag:
 
-1. In this repository, split out its history and push it to the new
-   repository, then tag the release:
+```yaml
+design_system:
+  git:
+    url: https://github.com/EugenioTesio/modular-flutter-app-design-system.git
+    ref: v0.1.1
+```
 
-   ```bash
-   git subtree split --prefix=packages/design_system -b design-system-split
-   git push https://github.com/EugenioTesio/modular-flutter-app-design-system.git design-system-split:main
-   ```
+To try an unreleased Design System change in Foundations, check out both
+repositories side by side (the container repository does this with its
+`design-system` and `foundations` submodules) and add a `pubspec_overrides.yaml`
+next to this `pubspec.yaml`:
 
-   Then create the tag `v<version>` in the new repository.
-2. In `pubspec.yaml`, replace the path dependency with the tag, and delete
-   `packages/design_system/`:
+```yaml
+dependency_overrides:
+  design_system:
+    path: ../design-system
+```
 
-   ```yaml
-   design_system:
-     git:
-       url: https://github.com/EugenioTesio/modular-flutter-app-design-system.git
-       ref: v<version>
-   ```
-
-3. Nothing else changes. The package name, the public library, and the
-   re-export line stay the same, so micro apps change no code.
-4. To develop both repositories side by side, use a `pubspec_overrides.yaml`
-   that points to `../design-system`. Keep it git-ignored and never commit it.
+The file is git-ignored and is never committed. Delete it, and run
+`flutter pub get`, to go back to the pinned release. A Design System change
+reaches consumers only after it is released with a new tag and Foundations
+pins that tag.
 
 ## Development
 
@@ -356,5 +357,5 @@ consumer code:
 | Coverage (at least 90% of `lib/`) | `flutter test --coverage`, which writes `coverage/lcov.info` |
 | Git consumer resolution | `tool/git_consumer_smoke.sh` |
 
-There is no CI. Run these before opening a pull request, in this package,
-the example, the design system, and its gallery.
+There is no CI. Run these before opening a pull request, in this package and
+the example.
